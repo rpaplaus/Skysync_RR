@@ -1,0 +1,23 @@
+from .config import (
+    BACKEND_DIR,
+    PROJECT_ROOT,
+    DATA_DIR,
+    PROCESSED_DATA_FILE,
+    TRACKS_CATALOG_FILE,
+    FRONTEND_DIR,
+    APP_TITLE,
+    APP_DESCRIPTION,
+    APP_VERSION,
+)
+
+__all__ = [
+    "BACKEND_DIR",
+    "PROJECT_ROOT",
+    "DATA_DIR",
+    "PROCESSED_DATA_FILE",
+    "TRACKS_CATALOG_FILE",
+    "FRONTEND_DIR",
+    "APP_TITLE",
+    "APP_DESCRIPTION",
+    "APP_VERSION",
+]

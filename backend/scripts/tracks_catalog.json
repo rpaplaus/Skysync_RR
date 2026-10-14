@@ -1,0 +1,631 @@
+{
+  "Aetherium Dreams": {
+    "id": "track-01",
+    "title": "Aetherium Dreams",
+    "artist": "Skyhaven Symphony",
+    "album": "Skyhaven OST Vol. 1",
+    "duration_seconds": 214,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:4cOdK2wGLETKBW3PvgPWqT",
+        "id": "4cOdK2wGLETKBW3PvgPWqT",
+        "preview_url": "https://p.scdn.co/mp3-preview/sample"
+      },
+      "youtube": {
+        "video_id": "dQw4w9WgXcQ",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Engenhos a Vapor": {
+    "id": "track-02",
+    "title": "Engenhos a Vapor",
+    "artist": "Ironclad Vanguard",
+    "album": "Skyhaven OST Vol. 1",
+    "duration_seconds": 185,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:11dFghVXANMlKmJXsNCbNl",
+        "id": "11dFghVXANMlKmJXsNCbNl",
+        "preview_url": "https://p.scdn.co/mp3-preview/sample2"
+      },
+      "youtube": {
+        "video_id": "5qap5aO4i9A",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.8,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Valsa nas Alturas": {
+    "id": "track-03",
+    "title": "Valsa nas Alturas",
+    "artist": "Caelum Quartet",
+    "album": "Skyhaven OST Vol. 1",
+    "duration_seconds": 240,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:3n3Ppam7vgaVa1iaRUc9Lp",
+        "id": "3n3Ppam7vgaVa1iaRUc9Lp",
+        "preview_url": "https://p.scdn.co/mp3-preview/sample3"
+      },
+      "youtube": {
+        "video_id": "kJQP7kiw5Fk",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.75,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Immigrant Song": {
+    "id": "track-04",
+    "title": "Immigrant Song",
+    "artist": "Led Zeppelin",
+    "album": "Led Zeppelin III",
+    "duration_seconds": 146,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:7AleHobSm7A86eTIO0X9fC",
+        "id": "7AleHobSm7A86eTIO0X9fC",
+        "preview_url": "https://p.scdn.co/mp3-preview/immigrant-song"
+      },
+      "youtube": {
+        "video_id": "y8O7HL3LeBo",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.9,
+      "loop": false
+    },
+    "role": "trigger"
+  },
+  "Handle With Care": {
+    "id": "track-traveling-wilburys",
+    "title": "Handle With Care",
+    "artist": "Traveling Wilburys",
+    "album": "Traveling Wilburys Vol. 1",
+    "duration_seconds": 200,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:2Gs2z0a26e8t6C5Uom2e8W",
+        "id": "2Gs2z0a26e8t6C5Uom2e8W"
+      },
+      "youtube": {
+        "video_id": "1o4s1KVJaVA",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Here I Go Again": {
+    "id": "track-whitesnake",
+    "title": "Here I Go Again",
+    "artist": "Whitesnake",
+    "album": "Whitesnake (1987)",
+    "duration_seconds": 275,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:1b7kEFrkM8qR086r0n65P5",
+        "id": "1b7kEFrkM8qR086r0n65P5"
+      },
+      "youtube": {
+        "video_id": "WyF8Rhm1P3c",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Perfect Day": {
+    "id": "track-lou-reed",
+    "title": "Perfect Day",
+    "artist": "Lou Reed",
+    "album": "Transformer",
+    "duration_seconds": 226,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:4f3RDq9YPBTCHSpBe977ip",
+        "id": "4f3RDq9YPBTCHSpBe977ip"
+      },
+      "youtube": {
+        "video_id": "QYEC4TZsy-Y",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Wicked Game": {
+    "id": "track-wicked-game",
+    "title": "Wicked Game",
+    "artist": "Chris Isaak",
+    "album": "Heart Shaped World",
+    "duration_seconds": 286,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:39shmbIHICJ2WxnkSRqSwv",
+        "id": "39shmbIHICJ2WxnkSRqSwv"
+      },
+      "youtube": {
+        "video_id": "dlJew-Dw87I",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.8,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Succession (Main Title Theme)": {
+    "id": "track-succession",
+    "title": "Succession (Main Title Theme)",
+    "artist": "Nicholas Britell",
+    "album": "Succession: Season 1 OST",
+    "duration_seconds": 105,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:4jXpP3aN20B9K5pD3UeJz2",
+        "id": "4jXpP3aN20B9K5pD3UeJz2"
+      },
+      "youtube": {
+        "video_id": "kUaK9Kx5qHQ",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Lean On Me": {
+    "id": "track-bill-withers",
+    "title": "Lean On Me",
+    "artist": "Bill Withers",
+    "album": "Still Bill",
+    "duration_seconds": 257,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:3IHrwkS83v46a3W0jM8eB4",
+        "id": "3IHrwkS83v46a3W0jM8eB4"
+      },
+      "youtube": {
+        "video_id": "fOZ-MySzAac",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Learning to Fly": {
+    "id": "track-tom-petty",
+    "title": "Learning to Fly",
+    "artist": "Tom Petty and the Heartbreakers",
+    "album": "Into the Great Wide Open",
+    "duration_seconds": 242,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:17S4Ztzc9y7f4u1Gk5a3B6",
+        "id": "17S4Ztzc9y7f4u1Gk5a3B6"
+      },
+      "youtube": {
+        "video_id": "s5BJXwNeKsQ",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Comfortably Numb": {
+    "id": "track-pink-floyd",
+    "title": "Comfortably Numb",
+    "artist": "Pink Floyd",
+    "album": "The Wall",
+    "duration_seconds": 382,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:7rPzwaYR1PdpXdEj5tWqc4",
+        "id": "7rPzwaYR1PdpXdEj5tWqc4"
+      },
+      "youtube": {
+        "video_id": "_FrOQC-zEog",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "The Chain": {
+    "id": "track-fleetwood-mac",
+    "title": "The Chain",
+    "artist": "Fleetwood Mac",
+    "album": "Rumours",
+    "duration_seconds": 269,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:5e9TFT0U2C1T2A2dY0pX4f",
+        "id": "5e9TFT0U2C1T2A2dY0pX4f"
+      },
+      "youtube": {
+        "video_id": "JDG2m5hN1vo",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Watermelon in Easter Hay": {
+    "id": "track-frank-zappa",
+    "title": "Watermelon in Easter Hay",
+    "artist": "Frank Zappa",
+    "album": "Joe's Garage",
+    "duration_seconds": 545,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:69tF5E97i6U4A8b61Q20aB",
+        "id": "69tF5E97i6U4A8b61Q20aB"
+      },
+      "youtube": {
+        "video_id": "B9DqykUsqRY",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.8,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Out Like a Lion": {
+    "id": "track-whitehorse",
+    "title": "Out Like a Lion",
+    "artist": "Whitehorse",
+    "album": "The Fate of the World Depends on This Kiss",
+    "duration_seconds": 235,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:3t0rQ6L9mN4c1jY0aB4f5E",
+        "id": "3t0rQ6L9mN4c1jY0aB4f5E"
+      },
+      "youtube": {
+        "video_id": "5qap5aO4i9A",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Blue Velvet": {
+    "id": "track-lana-del-rey",
+    "title": "Blue Velvet",
+    "artist": "Lana Del Rey",
+    "album": "Born to Die - The Paradise Edition",
+    "duration_seconds": 234,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:1G2mK4Z5A6b7C8d9E0f1g2",
+        "id": "1G2mK4Z5A6b7C8d9E0f1g2"
+      },
+      "youtube": {
+        "video_id": "HLEA3BC-3p0",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.8,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "In Dreams": {
+    "id": "track-roy-orbison",
+    "title": "In Dreams",
+    "artist": "Roy Orbison",
+    "album": "In Dreams",
+    "duration_seconds": 169,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:4jS9P5Z4C2mB1A0D8e7F6g",
+        "id": "4jS9P5Z4C2mB1A0D8e7F6g"
+      },
+      "youtube": {
+        "video_id": "TPqZkWke9w8",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Into My Arms": {
+    "id": "track-nick-cave",
+    "title": "Into My Arms",
+    "artist": "Nick Cave & The Bad Seeds",
+    "album": "The Boatman's Call",
+    "duration_seconds": 255,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:3K4aB5c6D7e8F9g0H1i2j3",
+        "id": "3K4aB5c6D7e8F9g0H1i2j3"
+      },
+      "youtube": {
+        "video_id": "LnHoqHscTKE",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Home (Edward Sharpe)": {
+    "id": "track-edward-sharpe",
+    "title": "Home",
+    "artist": "Edward Sharpe & The Magnetic Zeros",
+    "album": "Up from Below",
+    "duration_seconds": 303,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:7w5qA1B2C3d4E5f6G7h8i9",
+        "id": "7w5qA1B2C3d4E5f6G7h8i9"
+      },
+      "youtube": {
+        "video_id": "DHEOF_rcND8",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Life On Mars": {
+    "id": "track-david-bowie",
+    "title": "Life on Mars?",
+    "artist": "David Bowie",
+    "album": "Hunky Dory",
+    "duration_seconds": 228,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:3PgA1B2C3d4E5f6G7h8i9j",
+        "id": "3PgA1B2C3d4E5f6G7h8i9j"
+      },
+      "youtube": {
+        "video_id": "AZKcl4-tcuo",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "The Weight": {
+    "id": "track-the-band",
+    "title": "The Weight",
+    "artist": "The Band",
+    "album": "Music from Big Pink",
+    "duration_seconds": 274,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:5k8j9L0M1N2O3P4Q5R6S7t",
+        "id": "5k8j9L0M1N2O3P4Q5R6S7t"
+      },
+      "youtube": {
+        "video_id": "FFqb1I-MVHE",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Always On My Mind": {
+    "id": "track-elvis-presley",
+    "title": "Always On My Mind",
+    "artist": "Elvis Presley",
+    "album": "Separate Ways",
+    "duration_seconds": 217,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:2S6k7L8M9N0O1P2Q3R4S5t",
+        "id": "2S6k7L8M9N0O1P2Q3R4S5t"
+      },
+      "youtube": {
+        "video_id": "u9sRJ-eOHnc",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "You'll Be in My Heart": {
+    "id": "track-phil-collins",
+    "title": "You'll Be in My Heart",
+    "artist": "Phil Collins",
+    "album": "Tarzan OST",
+    "duration_seconds": 258,
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:1K2L3M4N5O6P7Q8R9S0T1u",
+        "id": "1K2L3M4N5O6P7Q8R9S0T1u"
+      },
+      "youtube": {
+        "video_id": "git6DCXSqjE",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.85,
+      "loop": true
+    },
+    "role": "trigger"
+  },
+  "Neon Solitude (Lofi Drift)": {
+    "id": "track-ambient-neon-solitude",
+    "title": "Neon Solitude",
+    "artist": "Aether Lofi Beats",
+    "album": "Skyhaven Ambient Sessions",
+    "duration_seconds": 240,
+    "role": "ambient",
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:ambient01",
+        "id": "ambient01",
+        "preview_url": null
+      },
+      "youtube": {
+        "video_id": "jfKfPfyJRdk",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.75,
+      "loop": false
+    }
+  },
+  "Cyber Drizzle (Synthwave Chill)": {
+    "id": "track-ambient-cyber-drizzle",
+    "title": "Cyber Drizzle",
+    "artist": "Synthwave Nocturne",
+    "album": "Skyhaven Ambient Sessions",
+    "duration_seconds": 300,
+    "role": "ambient",
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:ambient02",
+        "id": "ambient02",
+        "preview_url": null
+      },
+      "youtube": {
+        "video_id": "4xDzrJKXOOY",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.75,
+      "loop": false
+    }
+  },
+  "Aetherium Horizons (Orchestral Chill)": {
+    "id": "track-ambient-aetherium-horizons",
+    "title": "Aetherium Horizons",
+    "artist": "Skyhaven Symphony",
+    "album": "Skyhaven Ambient Sessions",
+    "duration_seconds": 280,
+    "role": "ambient",
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:ambient03",
+        "id": "ambient03",
+        "preview_url": null
+      },
+      "youtube": {
+        "video_id": "1ZYbU82GVz4",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.75,
+      "loop": false
+    }
+  },
+  "Midnight Starlight (Lofi Beats)": {
+    "id": "track-ambient-midnight-starlight",
+    "title": "Midnight Starlight",
+    "artist": "Kaelen & The Cloud Cadets",
+    "album": "Skyhaven Ambient Sessions",
+    "duration_seconds": 260,
+    "role": "ambient",
+    "providers": {
+      "spotify": {
+        "uri": "spotify:track:ambient04",
+        "id": "ambient04",
+        "preview_url": null
+      },
+      "youtube": {
+        "video_id": "5yx6BWlEVcY",
+        "start_seconds": 0
+      }
+    },
+    "default_playback_options": {
+      "fade_in_ms": 4000,
+      "volume": 0.75,
+      "loop": false
+    }
+  }
+}

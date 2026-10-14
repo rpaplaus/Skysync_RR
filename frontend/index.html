@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skysync — Leitura Imersiva: Skyhaven</title>
+  <meta name="description" content="Skysync: Experiência de leitura imersiva com trilha sonora adaptativa sincronizada por parágrafo para a obra Skyhaven.">
+  
+  <!-- Preconnect para Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Estilos do Leitor -->
+  <link rel="stylesheet" href="/static/css/reader.css">
+  <link rel="stylesheet" href="css/reader.css">
+</head>
+<body class="has-splash">
+
+  <!-- ===================================================================
+       TELA INICIAL / SPLASH SCREEN (Fase 5 - Requisito 1)
+       Impede a entrada abrupta no texto, gerencia 'Continuar Leitura' e
+       destrava a política de autoplay do navegador com um clique imersivo.
+       =================================================================== -->
+  <section class="splash-screen" id="splash-screen" aria-label="Tela Inicial de Apresentação">
+    <div class="splash-backdrop">
+      <div class="splash-nebula splash-nebula-1"></div>
+      <div class="splash-nebula splash-nebula-2"></div>
+      <div class="splash-stars"></div>
+    </div>
+    
+    <div class="splash-card">
+      <div class="splash-badge">✦ Experiência Sinestésica Adaptativa ✦</div>
+      <h1 class="splash-title">Skysync — Skyhaven</h1>
+      <p class="splash-subtitle">Crônicas do Éter • Sincronia Literária & Musical</p>
+
+      <div class="splash-divider">
+        <span class="splash-diamond">◆</span>
+      </div>
+
+      <p class="splash-description">
+        Mergulhe nas rotas aéreas e nas vibrações de Skyhaven. Cada capítulo é acompanhado por uma trilha sonora que antecipa o ritmo e a emoção de cada palavra.
+      </p>
+
+      <!-- Botões de Ação da Splash Screen -->
+      <div class="splash-actions">
+        <!-- Botão Continuar Leitura (Em destaque quando há progresso salvo) -->
+        <button class="splash-btn splash-btn-primary" id="btn-continue-reading" style="display: none;">
+          <span class="btn-icon">⚡</span>
+          <span class="btn-text" id="btn-continue-reading-text">Continuar Leitura (Capítulo 1)</span>
+          <span class="btn-glow"></span>
+        </button>
+
+        <!-- Botão Iniciar Leitura (Do zero) -->
+        <button class="splash-btn splash-btn-secondary" id="btn-start-reading">
+          <span class="btn-icon">📖</span>
+          <span class="btn-text">Iniciar Leitura</span>
+        </button>
+      </div>
+
+      <div class="splash-footer-note">
+        <span>🎧 Recomendado uso de fones de ouvido para imersão total com crossfade contínuo</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Barra de Progresso de Leitura Superior -->
+  <div class="reading-progress-track">
+    <div class="reading-progress-fill" id="reading-progress-fill"></div>
+  </div>
+
+  <!-- Header / HUD de Navegação Superior -->
+  <header class="app-header">
+    <div class="brand-section">
+      <a href="/" class="brand-logo" id="brand-logo" title="Skysync">
+        <span class="brand-logo-icon">🌌</span>
+        <span>SKYSYNC</span>
+      </a>
+      <span class="book-tag">Skyhaven</span>
+    </div>
+
+    <div class="header-chapter-title" id="header-chapter-title">
+      Carregando capítulo...
+    </div>
+
+    <div class="header-actions">
+      <!-- Seletor de Tema (Dark / Sepia / Light) -->
+      <div class="theme-selector" role="group" aria-label="Seletor de Tema">
+        <button class="theme-btn active" data-theme="dark" title="Modo Noite">🌙</button>
+        <button class="theme-btn" data-theme="sepia" title="Modo Sépia">📜</button>
+        <button class="theme-btn" data-theme="light" title="Modo Claro">☀️</button>
+      </div>
+
+      <!-- Ajuste de Tipografia -->
+      <div class="font-size-group" role="group" aria-label="Tamanho da Fonte">
+        <button id="btn-font-decrease" title="Diminuir fonte">A-</button>
+        <button id="btn-font-increase" title="Aumentar fonte">A+</button>
+      </div>
+
+      <!-- Botão para Abrir Índice / Capítulos -->
+      <button class="btn-control" id="btn-toggle-drawer" title="Sumário e Capítulos">
+        <span>📖</span>
+        <span>Índice</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Drawer Lateral (Índice de Capítulos com Abas: Prefácio vs Capítulos) -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <aside class="drawer-panel" id="drawer-panel" aria-label="Sumário do Livro">
+    <div class="drawer-header">
+      <div class="drawer-title">Sumário de Skyhaven</div>
+      <button class="btn-control btn-icon-only" id="btn-close-drawer" title="Fechar menu">✕</button>
+    </div>
+
+    <!-- Abas Superiores do Índice (Requisito 4) -->
+    <div class="drawer-tabs" role="tablist">
+      <button class="drawer-tab-btn" id="drawer-tab-btn-preface" role="tab" aria-selected="false" data-tab="preface">
+        <span>📜</span>
+        <span>Prefácio</span>
+      </button>
+      <button class="drawer-tab-btn active" id="drawer-tab-btn-chapters" role="tab" aria-selected="true" data-tab="chapters">
+        <span>📖</span>
+        <span>Capítulos</span>
+      </button>
+    </div>
+
+    <!-- Conteúdo da Aba: Prefácio & Notas -->
+    <div class="drawer-tab-content" id="drawer-tab-preface" style="display: none;">
+      <div class="preface-toc-card" id="preface-toc-card">
+        <!-- Renderizado dinamicamente pelo reader.js -->
+      </div>
+    </div>
+
+    <!-- Conteúdo da Aba: Capítulos (Capítulo 1 em diante) -->
+    <div class="drawer-tab-content active" id="drawer-tab-chapters">
+      <ul class="chapter-list" id="chapter-list">
+        <!-- Inserido dinamicamente pelo reader.js -->
+      </ul>
+    </div>
+  </aside>
+
+  <!-- Conteúdo Principal de Leitura (Experiência Paginada Estilo Kindle) -->
+  <main class="reader-container" id="reader-container">
+    <!-- Áreas de Navegação Laterais Invisíveis (Clique / Touch) -->
+    <div class="page-click-zone page-click-zone-left" id="page-zone-prev" role="button" aria-label="Página Anterior" title="Página Anterior (← ou Clique)">
+      <button class="page-nav-arrow" id="btn-page-prev" tabindex="-1" aria-hidden="true">‹</button>
+    </div>
+
+    <div id="reader-content">
+      <!-- Inserido dinamicamente pelo reader.js -->
+    </div>
+
+    <div class="page-click-zone page-click-zone-right" id="page-zone-next" role="button" aria-label="Próxima Página" title="Próxima Página (→ ou Clique)">
+      <button class="page-nav-arrow" id="btn-page-next" tabindex="-1" aria-hidden="true">›</button>
+    </div>
+  </main>
+
+  <!-- HUD Inferior Fixo de Status de Leitura & Orquestração de Áudio -->
+  <footer class="reader-bottom-hud" id="reader-bottom-hud">
+    <!-- Info de Leitura -->
+    <div class="hud-reading-info" id="hud-reading-info">
+      Iniciando leitura imersiva...
+    </div>
+
+    <!-- Dock do Dual Player -->
+    <div class="player-hud-dock" id="player-hud-dock">
+      <!-- Botão Play/Pause Global -->
+      <button class="btn-player-toggle" id="btn-player-play" title="Reproduzir/Pausar Trilha">
+        ▶
+      </button>
+
+      <!-- Visualizador Soundwave -->
+      <div class="soundwave-container" id="player-soundwave" title="Status da Trilha">
+        <span class="bar bar-1"></span>
+        <span class="bar bar-2"></span>
+        <span class="bar bar-3"></span>
+        <span class="bar bar-4"></span>
+      </div>
+
+      <!-- Detalhes da Faixa -->
+      <div class="player-track-meta">
+        <div class="player-track-title" id="player-track-title">Aguardando trilha...</div>
+        <div class="player-track-artist" id="player-track-artist">Role o texto para sincronizar</div>
+      </div>
+
+      <!-- Controle de Volume -->
+      <div class="player-volume-control">
+        <span class="volume-icon">🔊</span>
+        <input 
+          type="range" 
+          id="player-volume-slider" 
+          min="0" 
+          max="100" 
+          value="85" 
+          class="volume-slider" 
+          title="Volume da Trilha"
+        >
+      </div>
+
+      <!-- Seletor do Provedor (Dual Player) -->
+      <div class="player-provider-wrapper">
+        <select id="player-provider-select" class="provider-select" title="Alternar Provedor de Áudio">
+          <option value="youtube">YouTube (Free)</option>
+          <option value="spotify">Spotify (Embed)</option>
+        </select>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Contêineres Ocultos dos Reprodutores Iframe (Dual-Deck YouTube + Spotify) -->
+  <div id="youtube-player-deck-a" class="hidden-player-frame"></div>
+  <div id="youtube-player-deck-b" class="hidden-player-frame"></div>
+  <div id="youtube-player-frame" class="hidden-player-frame"></div>
+  <div id="spotify-player-frame" class="hidden-player-frame"></div>
+
+  <!-- Scripts do Skysync -->
+  <script src="/js/reader.js" defer></script>
+  <script src="/js/player/youtube-adapter.js" defer></script>
+  <script src="/js/player/spotify-adapter.js" defer></script>
+  <script src="/js/player/player-manager.js" defer></script>
+  <script src="/js/main.js" defer></script>
+</body>
+</html>
