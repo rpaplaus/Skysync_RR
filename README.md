@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/skyhaven_cover.png" alt="Skyhaven - R. A. Rios" width="380" />
+</p>
+
 # 🌌 Skysync (Skyhaven)
 
 > Plataforma de leitura imersiva com trilha sonora adaptativa sincronizada.
