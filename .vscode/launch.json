@@ -10,7 +10,7 @@
         "backend.app.main:app",
         "--reload",
         "--port",
-        "8000"
+        "8080"
       ],
       "jinja": true,
       "justMyCode": true,

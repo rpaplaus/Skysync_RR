@@ -57,11 +57,17 @@
           <span class="btn-glow"></span>
         </a>
 
-        <!-- Botão Iniciar/Continuar Leitura (Revelado após autenticação com token) -->
+        <!-- Botão Retomar Leitura / Iniciar Leitura -->
         <button class="splash-btn splash-btn-primary" id="btn-enter-reading" style="display: none;">
           <span class="btn-icon">▶</span>
-          <span class="btn-text" id="btn-enter-reading-text">Iniciar/Continuar Leitura</span>
+          <span class="btn-text" id="btn-enter-reading-text">Retomar Leitura</span>
           <span class="btn-glow"></span>
+        </button>
+
+        <!-- Botão Reiniciar Leitura (Reset) -->
+        <button class="splash-btn splash-btn-secondary splash-btn-reset" id="btn-reset-reading" style="display: none;">
+          <span class="btn-icon">↺</span>
+          <span class="btn-text" id="btn-reset-reading-text">Reiniciar Leitura</span>
         </button>
       </div>
 
@@ -212,6 +218,21 @@
       </div>
     </div>
   </footer>
+
+  <!-- Modal de Confirmação para Reiniciar Leitura -->
+  <div class="skysync-modal-backdrop" id="modal-reset-confirm" style="display: none;">
+    <div class="skysync-modal-card">
+      <div class="skysync-modal-icon">↺</div>
+      <h3 class="skysync-modal-title">Reiniciar Leitura?</h3>
+      <p class="skysync-modal-desc">
+        O seu progresso salvo será redefinido e você começará novamente a partir do início do livro. Deseja continuar?
+      </p>
+      <div class="skysync-modal-actions">
+        <button type="button" class="skysync-modal-btn skysync-modal-btn-cancel" id="btn-modal-cancel">Cancelar</button>
+        <button type="button" class="skysync-modal-btn skysync-modal-btn-confirm" id="btn-modal-confirm">Sim, Reiniciar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts do Skysync (Fase 13: 100% Exclusivo Spotify) -->
   <script src="/js/reader.js" defer></script>

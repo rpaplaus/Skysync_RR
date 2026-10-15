@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 
@@ -30,6 +31,18 @@ venv/
 env/
 ENV/
 
+# Node / Frontend
+node_modules/
+
+# Secrets, Credentials & Certificates (Security Audit - Fase 17)
+.env
+.env.*
+*.env
+!.env.example
+*.pem
+*.key
+secrets.json
+
 # IDE & Editors
 .vscode/*
 !.vscode/launch.json
@@ -47,7 +60,3 @@ desktop.ini
 # Logs
 *.log
 
-# Environment variables
-.env
-*.env
-!.env.example

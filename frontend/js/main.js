@@ -21,6 +21,12 @@
   const btnSpotifyLogin = document.getElementById('btn-spotify-login');
   const btnEnterReading = document.getElementById('btn-enter-reading');
   const btnEnterReadingText = document.getElementById('btn-enter-reading-text');
+  const btnResetReading = document.getElementById('btn-reset-reading');
+  const btnResetReadingText = document.getElementById('btn-reset-reading-text');
+  const modalResetConfirm = document.getElementById('modal-reset-confirm');
+  const btnModalCancel = document.getElementById('btn-modal-cancel');
+  const btnModalConfirm = document.getElementById('btn-modal-confirm');
+  const brandLogo = document.getElementById('brand-logo');
   const splashAuthNotice = document.getElementById('splash-auth-notice');
 
   let playerManager = null;
@@ -108,7 +114,9 @@
   /**
    * Atualiza o estado da Splash Screen:
    * - Se NÃO houver token: Mostra apenas '🎧 Conectar com Spotify Premium'.
-   * - Se HOUVER token: Oculta o login e mostra '▶ Iniciar/Continuar Leitura'.
+   * - Se HOUVER token:
+   *   - Se houver progresso: Exibe '▶ Retomar Leitura' E '↺ Reiniciar Leitura'.
+   *   - Se não houver progresso: Exibe '▶ Iniciar Leitura'.
    */
   function updateSplashState() {
     const token = getSavedToken();
@@ -120,22 +128,22 @@
       if (btnSpotifyLogin) btnSpotifyLogin.style.display = 'none';
       if (btnEnterReading) btnEnterReading.style.display = 'inline-flex';
 
-      // Define rótulo inteligente (Continuar Leitura se houver progresso prévio)
-      let label = '▶ Iniciar/Continuar Leitura';
+      // Define rótulo inteligente (Retomar Leitura se houver progresso prévio)
+      let label = '▶ Iniciar Leitura';
       if (lastChapterId) {
         if (lastChapterId === 'cap-preface' || lastChapterId.toLowerCase().includes('preface')) {
-          label = '▶ Continuar Leitura (Prefácio)';
+          label = '▶ Retomar Leitura (Prefácio)';
         } else if (bookData && bookData.chapters) {
           const ch = bookData.chapters.find((c) => c.id === lastChapterId);
           if (ch) {
             label = ch.is_preface || ch.number === 0
-              ? '▶ Continuar Leitura (Prefácio)'
-              : `▶ Continuar Leitura (Capítulo ${ch.number})`;
+              ? '▶ Retomar Leitura (Prefácio)'
+              : `▶ Retomar Leitura (Capítulo ${ch.number})`;
           }
         } else {
           const match = lastChapterId.match(/cap-0*(\d+)/i);
           if (match && match[1] !== '0') {
-            label = `▶ Continuar Leitura (Capítulo ${match[1]})`;
+            label = `▶ Retomar Leitura (Capítulo ${match[1]})`;
           }
         }
       }
@@ -143,21 +151,31 @@
       if (btnEnterReadingText) {
         btnEnterReadingText.textContent = label;
       }
-      console.log('🎧 [Skysync Splash] Usuário autenticado. Botão de leitura pronto:', label);
+
+      // Botão Reiniciar Leitura (Reset): visível quando há progresso salvo prévio
+      if (btnResetReading) {
+        btnResetReading.style.display = lastChapterId ? 'inline-flex' : 'none';
+      }
+
+      console.log('🎧 [Skysync Splash] Usuário autenticado. Botões atualizados:', {
+        label,
+        hasProgress: Boolean(lastChapterId),
+      });
     } else {
       // Usuário não autenticado: exige conexão com Spotify Premium
       if (btnSpotifyLogin) btnSpotifyLogin.style.display = 'inline-flex';
       if (btnEnterReading) btnEnterReading.style.display = 'none';
+      if (btnResetReading) btnResetReading.style.display = 'none';
     }
   }
 
   /**
-   * Configura os eventos de clique dos botões da Splash Screen e Player Bar.
+   * Configura os eventos de clique dos botões da Splash Screen, Modal de Reset e Player Bar.
    */
   function setupSplashButtons() {
     if (btnEnterReading) {
       btnEnterReading.addEventListener('click', () => {
-        // Correção 1: Chamada síncrona de unlockAudio() antes de qualquer await
+        // Chamada síncrona de unlockAudio() antes de qualquer await
         if (playerManager?.adapter && typeof playerManager.adapter.unlockAudio === 'function') {
           playerManager.adapter.unlockAudio();
         }
@@ -166,7 +184,51 @@
       });
     }
 
-    // Correção 1: No clique do botão Play/Pause da barra do player, chame sincronamente unlockAudio()
+    if (btnResetReading) {
+      btnResetReading.addEventListener('click', () => {
+        showResetConfirmationModal();
+      });
+    }
+
+    if (btnModalCancel) {
+      btnModalCancel.addEventListener('click', hideResetConfirmationModal);
+    }
+
+    if (btnModalConfirm) {
+      btnModalConfirm.addEventListener('click', () => {
+        hideResetConfirmationModal();
+        confirmResetAndStart();
+      });
+    }
+
+    if (modalResetConfirm) {
+      modalResetConfirm.addEventListener('click', (e) => {
+        if (e.target === modalResetConfirm) {
+          hideResetConfirmationModal();
+        }
+      });
+    }
+
+    // Tecla ESC fecha o modal de reset
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modalResetConfirm && modalResetConfirm.style.display !== 'none') {
+        hideResetConfirmationModal();
+      }
+    });
+
+    // Clique no logotipo Skysync no topo: permite retornar suavemente à tela de início
+    if (brandLogo) {
+      brandLogo.addEventListener('click', (e) => {
+        e.preventDefault();
+        updateSplashState();
+        if (splashEl) {
+          splashEl.classList.remove('hidden');
+        }
+        document.body.classList.add('has-splash');
+      });
+    }
+
+    // No clique do botão Play/Pause da barra do player, chame sincronamente unlockAudio()
     const btnPlayerPlay = document.getElementById('btn-player-play');
     if (btnPlayerPlay) {
       btnPlayerPlay.addEventListener('click', () => {
@@ -175,6 +237,42 @@
         }
       });
     }
+  }
+
+  /**
+   * Exibe o modal de confirmação para reiniciar a leitura.
+   */
+  function showResetConfirmationModal() {
+    if (modalResetConfirm) {
+      modalResetConfirm.style.display = 'flex';
+    } else {
+      if (window.confirm('Deseja realmente reiniciar a leitura do início? O seu progresso atual salvo será redefinido.')) {
+        confirmResetAndStart();
+      }
+    }
+  }
+
+  /**
+   * Oculta o modal de confirmação de reset.
+   */
+  function hideResetConfirmationModal() {
+    if (modalResetConfirm) {
+      modalResetConfirm.style.display = 'none';
+    }
+  }
+
+  /**
+   * Executa a reinicialização da leitura a partir do início do livro.
+   */
+  function confirmResetAndStart() {
+    console.log('↺ [Skysync Reset] Reiniciando progresso de leitura a partir do início...');
+    if (playerManager?.adapter && typeof playerManager.adapter.unlockAudio === 'function') {
+      playerManager.adapter.unlockAudio();
+    }
+    localStorage.removeItem(STORAGE_KEYS.LAST_PARAGRAPH);
+    localStorage.removeItem(STORAGE_KEYS.LAST_CHAPTER);
+    localStorage.removeItem(STORAGE_KEYS.LAST_TRACK_ID);
+    handleEnterReader({ isResume: false });
   }
 
   /**
