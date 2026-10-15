@@ -1,0 +1,73 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Iniciar Servidor Skysync",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": [
+        "-m",
+        "uvicorn",
+        "backend.app.main:app",
+        "--reload",
+        "--port",
+        "8000"
+      ],
+      "windows": {
+        "command": ".\\.venv\\Scripts\\python.exe",
+        "args": [
+          "-m",
+          "uvicorn",
+          "backend.app.main:app",
+          "--reload",
+          "--port",
+          "8000"
+        ]
+      },
+      "osx": {
+        "command": "./.venv/bin/python",
+        "args": [
+          "-m",
+          "uvicorn",
+          "backend.app.main:app",
+          "--reload",
+          "--port",
+          "8000"
+        ]
+      },
+      "linux": {
+        "command": "./.venv/bin/python",
+        "args": [
+          "-m",
+          "uvicorn",
+          "backend.app.main:app",
+          "--reload",
+          "--port",
+          "8000"
+        ]
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Rodar Testes de Integridade da API",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe backend/scripts/test_api.py",
+      "windows": {
+        "command": ".\\.venv\\Scripts\\python.exe backend/scripts/test_api.py"
+      },
+      "osx": {
+        "command": "./.venv/bin/python backend/scripts/test_api.py"
+      },
+      "linux": {
+        "command": "./.venv/bin/python backend/scripts/test_api.py"
+      },
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

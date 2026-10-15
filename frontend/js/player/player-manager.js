@@ -1,40 +1,132 @@
 /**
- * Skysync - PlayerManager (Fase 9: Máquina de Estados Non-Stop e Ajuste Global de 4s)
- * Controla os adaptadores (YouTube Dual-Deck / Spotify), gerencia a fila contínua,
- * o sorteio de faixas ambientais (sem repetição consecutiva), a transição no evento ENDED
- * e a interrupção imediata com crossfade padronizado de 4000ms quando um Lookahead Trigger de cena é acionado.
+ * Skysync - PlayerManager (Fase 15: Saneamento do Catálogo Spotify e Bloqueio de Overlap)
+ * 
+ * Orquestrador oficial do player Spotify com Web Playback SDK:
+ * 1. Startup Exato: O aplicativo não sorteia rádio ambiente no início. O Capítulo 1
+ *    começa tocando imediatamente o gatilho oficial "Handle With Care - Traveling Wilburys".
+ * 2. Transições Seguras e Fim Natural: Validação por URI e trava no adapter garantem
+ *    que o evento ENDED só dispare no fim real da música, acionando a Rádio Ambiente.
+ * 3. Lookahead Trigger Rigoroso: Limpeza estrita de timers pendentes ao virar páginas rapidamente,
+ *    guarda contra duplicatas em voo e suporte a delay 0ms.
  */
+
+const DEFAULT_AMBIENT_TRACKS = [
+  {
+    id: 'track-hey-thats-no-way-to-say-goodbye',
+    title: "Hey, That's No Way to Say Goodbye",
+    artist: 'Leonard Cohen',
+    role: 'ambient',
+    providers: {
+      spotify: {
+        uri: 'spotify:track:4Hu4Cg35qxh3Uz7PAGj8de',
+        id: '4Hu4Cg35qxh3Uz7PAGj8de',
+      },
+    },
+    default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+  },
+  {
+    id: 'track-sundown',
+    title: 'Sundown',
+    artist: 'Gordon Lightfoot',
+    role: 'ambient',
+    providers: {
+      spotify: {
+        uri: 'spotify:track:0SjnBEHZVXgCKvOrpvzL2k',
+        id: '0SjnBEHZVXgCKvOrpvzL2k',
+      },
+    },
+    default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+  },
+  {
+    id: 'track-rosanna',
+    title: 'Rosanna',
+    artist: 'TOTO',
+    role: 'ambient',
+    providers: {
+      spotify: {
+        uri: 'spotify:track:37BTh5g05cxBIRYMbw8g2T',
+        id: '37BTh5g05cxBIRYMbw8g2T',
+      },
+    },
+    default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+  },
+  {
+    id: 'track-youre-my-best-friend',
+    title: "You're My Best Friend",
+    artist: 'Queen',
+    role: 'ambient',
+    providers: {
+      spotify: {
+        uri: 'spotify:track:46gybz6M2g4oiVvt1aWOV4',
+        id: '46gybz6M2g4oiVvt1aWOV4',
+      },
+    },
+    default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+  },
+  {
+    id: 'track-wish-you-were-here',
+    title: 'Wish You Were Here',
+    artist: 'Pink Floyd',
+    role: 'ambient',
+    providers: {
+      spotify: {
+        uri: 'spotify:track:6mFkJmJqdDVQ1REhVfGgd1',
+        id: '6mFkJmJqdDVQ1REhVfGgd1',
+      },
+    },
+    default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+  },
+];
+
+const DEFAULT_INITIAL_TRACK = {
+  id: 'track-handle-with-care',
+  title: 'Handle With Care',
+  artist: 'Traveling Wilburys',
+  album: 'The Traveling Wilburys, Vol. 1',
+  role: 'trigger',
+  providers: {
+    spotify: {
+      uri: 'spotify:track:1G0ku3TLCGwrAHj9WPudKX',
+      id: '1G0ku3TLCGwrAHj9WPudKX',
+    },
+  },
+  default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+};
 
 class PlayerManager {
   constructor() {
     this.STORAGE_KEYS = {
       LAST_TRACK_ID: 'skysync_last_track_id',
-      PLAYER_MODE: 'skysync_player_mode',
       VOLUME: 'skysync_volume',
-      MANUAL_PAUSE: 'skysync_manual_pause',
     };
 
-    // Provedores suportados
-    this.adapters = {
-      youtube: new window.YouTubeAdapter(),
-      spotify: new window.SpotifyAdapter(),
-    };
+    // Adaptador exclusivo oficial: Spotify Web Playback SDK
+    this.adapter = new window.SpotifyAdapter();
+    this.activeProviderName = 'spotify';
 
-    // Provedor ativo
-    this.activeProviderName = localStorage.getItem(this.STORAGE_KEYS.PLAYER_MODE) || 'youtube';
     this.currentTrack = null;
-    this.isManuallyPaused = localStorage.getItem(this.STORAGE_KEYS.MANUAL_PAUSE) === 'true';
+    // Correção 3: NUNCA salve nem leia isManuallyPaused do localStorage. Sempre inicie com false.
+    this.isManuallyPaused = false;
+    this.pausedOnCurrentPage = false;
+    this.currentPageIndex = null;
+    this.currentChapterId = null;
+    localStorage.removeItem('skysync_manual_pause');
     this.volume = parseFloat(localStorage.getItem(this.STORAGE_KEYS.VOLUME)) || 0.85;
 
-    // Catálogo e Fila da Rádio Ambiente (Non-Stop)
+    // Catálogo e Rádio Ambiente
     this.fullCatalog = {};
     this.ambientTracks = [];
     this.lastAmbientTrackId = null;
 
-    // Gerenciador de timer de gatilho
+    // Requisito 3: Gerenciador rigoroso de timer de gatilho Lookahead
     this.pendingTriggerTimer = null;
     this.pendingTriggerBlockId = null;
     this.pendingTriggerTrack = null;
+
+    // Failsafes de debounce e prevenção de loops
+    this.consecutiveErrorCount = 0;
+    this.errorCooldownTimer = null;
+    this.lastTrackEndTime = 0;
 
     // Elementos da UI
     this.ui = {
@@ -43,33 +135,27 @@ class PlayerManager {
       trackArtist: null,
       soundwave: null,
       volumeSlider: null,
-      providerSelect: null,
       hudActiveTrack: null,
     };
   }
 
   /**
-   * Inicializa o catálogo, adaptadores, escuta de eventos ENDED e UI.
+   * Inicializa catálogo, adaptador Spotify, escuta de eventos e UI.
    */
   async init() {
-    console.log('[Skysync PlayerManager] Inicializando Dual Player & Máquina de Estados Non-Stop (Padrão 4s)...');
+    console.log('🎧 [Skysync PlayerManager] Inicializando Player 100% Exclusivo Spotify (Fase 15)...');
     this._bindUIElements();
 
-    // 1. Carrega catálogo de trilhas para catalogar faixas da Rádio Ambiente
+    // 1. Carrega catálogo limpo de trilhas do backend
     await this._loadCatalog();
 
-    // 2. Inicializa os dois adaptadores
-    await Promise.all([
-      this.adapters.youtube.init('youtube-player-deck-a'),
-      this.adapters.spotify.init('spotify-player-frame'),
-    ]);
+    // 2. Prepara o adaptador Spotify Web Playback SDK (sem connect prematuro)
+    await this.adapter.init();
 
-    // 3. Configura callbacks de estado de reprodução e fim natural de faixa (ENDED)
-    this.adapters.youtube.setOnStateChange((isPlaying) => this._onPlayerStateChanged(isPlaying));
-    this.adapters.youtube.setOnTrackEnd((endedTrack) => this.handleTrackEnded(endedTrack));
-
-    this.adapters.spotify.setOnStateChange((isPlaying) => this._onPlayerStateChanged(isPlaying));
-    this.adapters.spotify.setOnTrackEnd((endedTrack) => this.handleTrackEnded(endedTrack));
+    // 3. Configura callbacks de estado de reprodução, fim de faixa e tratamento de erros
+    this.adapter.setOnStateChange((isPlaying) => this._onPlayerStateChanged(isPlaying));
+    this.adapter.setOnTrackEnd((endedTrack) => this.handleTrackEnded(endedTrack));
+    this.adapter.setOnError((err, track) => this.handleTrackError(err, track));
 
     // 4. Ajusta volume inicial
     this.setVolume(this.volume);
@@ -81,17 +167,27 @@ class PlayerManager {
 
     this._updateUI();
     console.log(
-      `[Skysync PlayerManager] Pronto. Provedor ativo: ${this.activeProviderName.toUpperCase()} ` +
-      `| Faixas ambiente cadastradas: ${this.ambientTracks.length}`
+      `🎧 [Skysync PlayerManager] Pronto. Provedor: SPOTIFY PREMIUM ` +
+      `| Faixas ambiente catalogadas: ${this.ambientTracks.length}`
     );
   }
 
   get activeAdapter() {
-    return this.adapters[this.activeProviderName] || this.adapters.youtube;
+    return this.adapter;
   }
 
   /**
-   * Carrega o catálogo da API e separa as faixas com role === 'ambient'.
+   * Conecta o Spotify SDK sob demanda após interação do usuário (AudioContext unlock).
+   */
+  async connect() {
+    if (this.adapter && typeof this.adapter.connect === 'function') {
+      return await this.adapter.connect();
+    }
+    return null;
+  }
+
+  /**
+   * Carrega o catálogo da API e filtra as faixas ambientais para Spotify.
    */
   async _loadCatalog() {
     try {
@@ -100,38 +196,110 @@ class PlayerManager {
         const catalog = await res.json();
         this.fullCatalog = catalog;
 
-        // Filtra faixas com role: "ambient"
+        // Filtra faixas ambientais oficiais com URI do Spotify
         const ambients = Object.values(catalog).filter(
-          (t) => t.role === 'ambient'
+          (t) => t.role === 'ambient' && (t.providers?.spotify?.uri || t.providers?.spotify?.id)
         );
 
         if (ambients.length > 0) {
           this.ambientTracks = ambients;
         } else {
-          // Fallback seguro caso nenhuma esteja marcada
-          this.ambientTracks = Object.values(catalog).slice(0, 4);
+          this.ambientTracks = [...DEFAULT_AMBIENT_TRACKS];
         }
 
-        console.log(`📻 [Skysync Catálogo] ${this.ambientTracks.length} faixas ambient catalogadas para a rádio contínua.`);
+        console.log(`📻 [Skysync Catálogo] ${this.ambientTracks.length} faixas ambient Spotify catalogadas.`);
       }
     } catch (e) {
       console.warn('[Skysync PlayerManager] Falha ao carregar catálogo de faixas:', e);
-      this.ambientTracks = [];
+      this.ambientTracks = [...DEFAULT_AMBIENT_TRACKS];
     }
+  }
+
+  /**
+   * Localiza uma música no catálogo por título, artista ou ID.
+   */
+  findTrack(titleOrId, artistHint) {
+    if (!this.fullCatalog || Object.keys(this.fullCatalog).length === 0) return null;
+
+    // 1. Busca direta por chave
+    if (this.fullCatalog[titleOrId]) {
+      return this.fullCatalog[titleOrId];
+    }
+
+    const searchLower = titleOrId.toLowerCase().trim();
+    const artistLower = artistHint ? artistHint.toLowerCase().trim() : '';
+
+    // 2. Busca por id, título ou slug
+    for (const track of Object.values(this.fullCatalog)) {
+      if (track.id === titleOrId || track.id === searchLower) {
+        return track;
+      }
+      const tTitle = track.title?.toLowerCase() || '';
+      if (tTitle === searchLower || (searchLower.length >= 4 && tTitle.includes(searchLower))) {
+        if (!artistLower || (track.artist && track.artist.toLowerCase().includes(artistLower))) {
+          return track;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Requisito 4: Regra de Ouro do Início da Leitura.
+   * Ao clicar em "Iniciar Leitura" (seja do início do livro ou no Capítulo 1 / Prefácio),
+   * a primeira música a tocar DEVE SER OBRIGATORIAMENTE a primeira música de gatilho:
+   * "Handle With Care" - Traveling Wilburys (track-handle-with-care), com autoplay = true.
+   */
+  async playInitialTrack() {
+    console.log('🚀 [Skysync Startup] Iniciando leitura: acionando trilha oficial obrigatória (Handle With Care)...');
+    this.isManuallyPaused = false;
+    this.pausedOnCurrentPage = false;
+
+    // Busca especificamente "Handle With Care" dos "Traveling Wilburys"
+    let initialTrack =
+      this.findTrack('track-handle-with-care') ||
+      this.findTrack('Handle With Care', 'Traveling Wilburys') ||
+      DEFAULT_INITIAL_TRACK;
+
+    console.log(
+      `🚀 [Skysync Startup] Tocando faixa oficial obrigatória de abertura: '${initialTrack.title}' (${initialTrack.artist})`
+    );
+    this.playTrack(initialTrack, true, 4000);
+  }
+
+  /**
+   * Reproduz uma faixa explicitamente.
+   */
+  playTrack(track, autoplay = true, fadeDurationMs = 4000) {
+    if (!track) return;
+
+    this.currentTrack = track;
+    localStorage.setItem(this.STORAGE_KEYS.LAST_TRACK_ID, track.id);
+
+    this.adapter.loadTrack(track, autoplay, fadeDurationMs);
+    this._updateUI(autoplay);
   }
 
   /**
    * Sorteia uma música aleatória da lista ambient sem repetir a anterior consecutivamente.
    */
   getRandomAmbientTrack() {
-    if (!this.ambientTracks || this.ambientTracks.length === 0) {
-      return null;
+    let candidates =
+      this.ambientTracks && this.ambientTracks.length > 0
+        ? this.ambientTracks.filter((t) => t.role === 'ambient' && (t.providers?.spotify?.uri || t.providers?.spotify?.id))
+        : [];
+
+    if (candidates.length === 0) {
+      this.ambientTracks = [...DEFAULT_AMBIENT_TRACKS];
+      candidates = this.ambientTracks;
     }
 
-    let candidates = this.ambientTracks;
-    // Não repete a mesma música ambient duas vezes seguidas
     if (candidates.length > 1 && this.lastAmbientTrackId) {
-      candidates = candidates.filter((t) => t.id !== this.lastAmbientTrackId);
+      const withoutLast = candidates.filter((t) => t.id !== this.lastAmbientTrackId);
+      if (withoutLast.length > 0) {
+        candidates = withoutLast;
+      }
     }
 
     const randomIndex = Math.floor(Math.random() * candidates.length);
@@ -141,7 +309,7 @@ class PlayerManager {
   }
 
   /**
-   * Inicia ou faz crossfade para uma nova faixa da Rádio Ambiente (Padrão 4000ms).
+   * Inicia ou faz crossfade para uma nova faixa da Rádio Ambiente (Padrão: 4000ms).
    */
   playRandomAmbientTrack(fadeDurationMs = 4000) {
     if (this.isManuallyPaused) {
@@ -156,44 +324,54 @@ class PlayerManager {
     }
 
     console.log(
-      `📻 [Skysync Rádio Ambiente] Sorteada e tocando: '${ambientTrack.title}' (Crossfade: ${fadeDurationMs}ms)`
+      `📻 [Skysync Rádio Ambiente Spotify] Tocando: '${ambientTrack.title}' (Crossfade: ${fadeDurationMs}ms)`
     );
 
-    this.currentTrack = ambientTrack;
-    localStorage.setItem(this.STORAGE_KEYS.LAST_TRACK_ID, ambientTrack.id);
-
-    this.activeAdapter.loadTrack(ambientTrack, true, fadeDurationMs);
-    this._updateUI(true);
+    this.playTrack(ambientTrack, true, fadeDurationMs);
   }
 
   /**
-   * Início da Leitura: Ao clicar em 'Iniciar/Continuar Leitura', o sistema sorteia e toca
-   * uma música da lista ambient com transição padrão de 4000ms.
+   * Dispara a reprodução ao entrar no modo de leitura (respeitando startup vs resume).
    */
   async playAmbientTrack() {
     this.isManuallyPaused = false;
-    localStorage.setItem(this.STORAGE_KEYS.MANUAL_PAUSE, 'false');
+    this.pausedOnCurrentPage = false;
 
     if (!this.ambientTracks || this.ambientTracks.length === 0) {
       await this._loadCatalog();
     }
 
-    this.playRandomAmbientTrack(4000);
+    if (this.adapter && typeof this.adapter.connect === 'function' && !this.adapter.isReady) {
+      await this.adapter.connect();
+    }
+
+    // Se já estiver tocando uma faixa (ex: do Startup), não interrompe
+    if (this.adapter.isPlaying() && this.currentTrack) {
+      console.log(`🎧 [Skysync Player] Mantendo faixa ativa em reprodução: '${this.currentTrack.title}'`);
+      return;
+    }
+
+    this.playRandomAmbientTrack(3000);
   }
 
   /**
-   * Fim de Faixa (ENDED):
-   * Escuta o evento emitido pelo adaptador do YouTube.
-   * Se a música que acabou era trigger -> crossfade para nova música aleatória ambient (4000ms).
-   * Se a música que acabou era ambient -> crossfade para outra música aleatória ambient (4000ms).
+   * Tratamento de fim de faixa natural (Achado D refatorado).
+   * O adapter garante que o callback só dispara quando a música acaba de verdade.
    */
   handleTrackEnded(endedTrack) {
     const trackTitle = endedTrack?.title || this.currentTrack?.title || 'Faixa';
     const trackRole = endedTrack?.role || this.currentTrack?.role || 'trigger';
 
+    // Debounce adicional de 2.5s contra disparos em cascata
+    const now = Date.now();
+    if (this.lastTrackEndTime && now - this.lastTrackEndTime < 2500) {
+      return;
+    }
+    this.lastTrackEndTime = now;
+
     console.log(
-      `⏹️ [Skysync Máquina de Estados] Fim da música detectado: '${trackTitle}' (role: ${trackRole}). ` +
-      `Ativando transição non-stop para a próxima faixa da Rádio Ambiente (4000ms)...`
+      `⏹️ [Skysync PlayerManager] Fim natural da faixa detectado: '${trackTitle}' (role: ${trackRole}). ` +
+      `Ativando Rádio Ambiente Spotify com transição suave (3000ms)...`
     );
 
     if (this.isManuallyPaused) {
@@ -201,106 +379,175 @@ class PlayerManager {
       return;
     }
 
-    // Tanto trigger quanto ambient transitam continuamente para nova música ambient aleatória
-    this.playRandomAmbientTrack(4000);
+    this.playRandomAmbientTrack(3000);
   }
 
   /**
-   * Interrupção por Gatilho (Lookahead):
-   * Se uma música ambient estiver tocando e o usuário avançar para uma página que possui
-   * um Lookahead Trigger (música trigger), o sistema faz o crossfade imediatamente da ambient para a trigger.
+   * Tratamento de Erros:
+   * Em caso de falha no carregamento ou playback, pula para a próxima faixa ambient de forma segura.
    */
-  handleParagraphChange(detail) {
-    const { paragraphId, audioTrigger } = detail;
+  handleTrackError(err, failedTrack) {
+    const title = failedTrack?.title || this.currentTrack?.title || 'Faixa';
+    console.warn(`🚨 [Skysync PlayerManager] Erro no player para faixa '${title}' (Erro: ${err}).`);
 
-    // Cancela qualquer timer de gatilho anterior
+    this.cancelPendingTrigger();
+
+    if (failedTrack && failedTrack.id && failedTrack.role === 'ambient') {
+      this.lastAmbientTrackId = failedTrack.id;
+      this.ambientTracks = this.ambientTracks.filter((t) => t.id !== failedTrack.id);
+    }
+
+    if (!this.ambientTracks || this.ambientTracks.length === 0) {
+      this.ambientTracks = [...DEFAULT_AMBIENT_TRACKS];
+    }
+
+    if (this.isManuallyPaused) {
+      this._updateUI(false);
+      return;
+    }
+
+    this.consecutiveErrorCount = (this.consecutiveErrorCount || 0) + 1;
+    if (this.consecutiveErrorCount >= 4) {
+      console.warn('⚠️ [Skysync PlayerManager] Limite de tentativas consecutivas atingido (4). Aguardando próxima ação.');
+      this._updateUI(false);
+      return;
+    }
+
+    if (this.errorCooldownTimer) {
+      clearTimeout(this.errorCooldownTimer);
+    }
+    this.errorCooldownTimer = setTimeout(() => {
+      this.errorCooldownTimer = null;
+      if (!this.isManuallyPaused) {
+        console.log(`🔄 [Skysync PlayerManager] Tentativa ${this.consecutiveErrorCount}/4: sorteando nova faixa ambient...`);
+        this.playRandomAmbientTrack(2000);
+      }
+    }, 800);
+  }
+
+  /**
+   * Cancela qualquer timer pendente de gatilho e limpa as referências.
+   */
+  cancelPendingTrigger() {
     if (this.pendingTriggerTimer) {
       clearTimeout(this.pendingTriggerTimer);
       this.pendingTriggerTimer = null;
     }
     this.pendingTriggerBlockId = null;
     this.pendingTriggerTrack = null;
+  }
+
+  /**
+   * Lookahead Exato e Bloqueio de Overlap (Fase 16).
+   * Trata gatilhos recebidos de mudanças de página ou cliques em badges.
+   */
+  handleParagraphChange(detail) {
+    const { paragraphId, chapterId, pageIndex, audioTrigger } = detail || {};
+
+    // Virada de página: reseta estado de pause da página anterior
+    if (
+      (pageIndex !== undefined && pageIndex !== this.currentPageIndex) ||
+      (chapterId !== undefined && chapterId !== this.currentChapterId)
+    ) {
+      this.currentPageIndex = pageIndex !== undefined ? pageIndex : this.currentPageIndex;
+      this.currentChapterId = chapterId !== undefined ? chapterId : this.currentChapterId;
+      this.pausedOnCurrentPage = false;
+    }
 
     if (!audioTrigger || !audioTrigger.track) {
+      this.cancelPendingTrigger();
       return;
     }
 
-    const newTrack = audioTrigger.track;
-    newTrack.role = newTrack.role || 'trigger';
+    // Cópia rasa forçando role: 'trigger' sem mutar o catálogo
+    const newTrack = { ...audioTrigger.track, role: 'trigger' };
 
-    // Se a música já for a mesma atualmente em reprodução, mantém
+    // Guarda contra duplicatas: se a faixa já estiver tocando, mantém
     if (this.currentTrack && this.currentTrack.id === newTrack.id) {
       return;
     }
 
-    // Se a música atual for 'ambient', a transição para a música trigger é imediata (delay reduzido)
-    const isCurrentlyAmbient = this.currentTrack && this.currentTrack.role === 'ambient';
-    const delayMs = isCurrentlyAmbient ? Math.min(300, audioTrigger.delay_ms || 300) : (audioTrigger.delay_ms || 1000);
+    // Cancela qualquer timer pendente para agendar com o delay atual
+    this.cancelPendingTrigger();
+
+    const delayMs = audioTrigger.delay_ms ?? 1000;
 
     this.pendingTriggerBlockId = paragraphId;
     this.pendingTriggerTrack = newTrack;
 
     console.log(
-      `[Skysync Player] Gatilho de cena detectado (${newTrack.title}). ` +
-      `${isCurrentlyAmbient ? 'Interrompendo Rádio Ambiente com crossfade imediato (4s)...' : `Aguardando delay de ${delayMs}ms...`}`
+      `🎧 [Skysync Player Lookahead] Gatilho de cena detectado: '${newTrack.title}' (${newTrack.artist}). ` +
+      `Aguardando delay de ${delayMs}ms...`
     );
 
     this.pendingTriggerTimer = setTimeout(() => {
-      this._executeTrigger(audioTrigger, paragraphId);
+      this._executeTrigger({ ...audioTrigger, track: newTrack }, paragraphId);
     }, delayMs);
   }
 
   /**
-   * Executa o crossfade definitivo para a faixa de cena disparada (4000ms padrão global).
+   * Executa a transição definitiva para a faixa de cena disparada (Correção 3: 3000ms fixo).
+   * Um gatilho de cena na virada de página sempre toca, a menos que o usuário tenha pausado explicitamente na página atual.
    */
   _executeTrigger(audioTrigger, paragraphId) {
-    const track = audioTrigger.track;
-    track.role = track.role || 'trigger';
+    const track = { ...audioTrigger.track, role: 'trigger' };
 
     this.pendingTriggerTimer = null;
     this.pendingTriggerBlockId = null;
     this.pendingTriggerTrack = null;
 
-    console.log(`🔀 [Skysync Player] Disparando trilha de cena: '${track.title}' (${track.artist}) [Crossfade: 4000ms]`);
+    console.log(`🔀 [Skysync Spotify] Disparando trilha de cena: '${track.title}' (${track.artist}) [Transição: 3000ms]`);
 
-    this.currentTrack = track;
-    localStorage.setItem(this.STORAGE_KEYS.LAST_TRACK_ID, track.id);
-
-    if (this.isManuallyPaused) {
-      console.log('[Skysync Player] Reprodução automática bloqueada: usuário pausou manualmente.');
-      this.activeAdapter.loadTrack(track, false);
-      this._updateUI(false);
+    if (this.pausedOnCurrentPage) {
+      console.log('⏸️ [Skysync Player] Gatilho mantido pausado: usuário pausou explicitamente na página atual.');
+      this.playTrack(track, false, 3000);
       return;
     }
 
-    const fadeDuration = audioTrigger.playback_options?.fade_in_ms || 4000;
-    this.activeAdapter.loadTrack(track, true, fadeDuration);
-    this._updateUI(true);
+    this.isManuallyPaused = false;
+    this.playTrack(track, true, 3000);
   }
 
   /**
    * Botão Global de Play/Pause na interface.
    */
   togglePlayPause() {
-    const isPlaying = this.activeAdapter.isPlaying();
+    // Desbloqueio síncrono nativo no gesto do usuário
+    if (this.adapter && typeof this.adapter.unlockAudio === 'function') {
+      this.adapter.unlockAudio();
+    }
+
+    const isPlaying = this.adapter.isPlaying();
 
     if (isPlaying) {
-      this.activeAdapter.pause();
+      this.adapter.pause();
       this.isManuallyPaused = true;
-      localStorage.setItem(this.STORAGE_KEYS.MANUAL_PAUSE, 'true');
-      console.log('[Skysync Player] Usuário pausou manualmente a trilha.');
+      this.pausedOnCurrentPage = true;
+      console.log('[Skysync Player] Reprodução pausada pelo usuário.');
       this._updateUI(false);
     } else {
       this.isManuallyPaused = false;
-      localStorage.setItem(this.STORAGE_KEYS.MANUAL_PAUSE, 'false');
-      console.log('[Skysync Player] Usuário retomou a trilha.');
+      this.pausedOnCurrentPage = false;
+      this.consecutiveErrorCount = 0;
+      console.log('[Skysync Player] Reprodução retomada pelo usuário.');
+
+      if (this.adapter && typeof this.adapter.connect === 'function' && !this.adapter.isReady) {
+        this.adapter.connect().then(() => {
+          if (this.currentTrack) {
+            this.adapter.play();
+            this._updateUI(true);
+          } else {
+            this.playInitialTrack();
+          }
+        });
+        return;
+      }
 
       if (this.currentTrack) {
-        this.activeAdapter.play();
+        this.adapter.play();
         this._updateUI(true);
       } else {
-        // Se ainda não tocou nenhuma, inicia a rádio ambiente com 4000ms
-        this.playRandomAmbientTrack(4000);
+        this.playInitialTrack();
       }
     }
   }
@@ -311,31 +558,10 @@ class PlayerManager {
   setVolume(volFloat) {
     this.volume = Math.max(0, Math.min(1, volFloat));
     localStorage.setItem(this.STORAGE_KEYS.VOLUME, this.volume.toString());
-    this.activeAdapter.setVolume(this.volume);
+    this.adapter.setVolume(this.volume);
     if (this.ui.volumeSlider) {
       this.ui.volumeSlider.value = Math.round(this.volume * 100);
     }
-  }
-
-  /**
-   * Troca dinâmica entre YouTube e Spotify.
-   */
-  setProvider(providerName) {
-    if (!this.adapters[providerName] || providerName === this.activeProviderName) return;
-
-    console.log(`[Skysync Player] Alternando provedor: ${this.activeProviderName} -> ${providerName}`);
-
-    const wasPlaying = this.activeAdapter.isPlaying();
-    this.activeAdapter.pause();
-
-    this.activeProviderName = providerName;
-    localStorage.setItem(this.STORAGE_KEYS.PLAYER_MODE, providerName);
-
-    if (this.currentTrack) {
-      this.activeAdapter.loadTrack(this.currentTrack, wasPlaying && !this.isManuallyPaused);
-    }
-
-    this._updateUI(this.activeAdapter.isPlaying());
   }
 
   /**
@@ -347,7 +573,6 @@ class PlayerManager {
     this.ui.trackArtist = document.getElementById('player-track-artist');
     this.ui.soundwave = document.getElementById('player-soundwave');
     this.ui.volumeSlider = document.getElementById('player-volume-slider');
-    this.ui.providerSelect = document.getElementById('player-provider-select');
     this.ui.hudActiveTrack = document.getElementById('hud-active-track');
 
     if (this.ui.btnPlayPause) {
@@ -360,23 +585,16 @@ class PlayerManager {
         this.setVolume(parseInt(e.target.value, 10) / 100);
       });
     }
-
-    if (this.ui.providerSelect) {
-      this.ui.providerSelect.value = this.activeProviderName;
-      this.ui.providerSelect.addEventListener('change', (e) => {
-        this.setProvider(e.target.value);
-      });
-    }
   }
 
   /**
-   * Atualiza a UI refletindo o estado de reprodução e se a música é ambiente ou gatilho de cena.
+   * Atualiza a UI refletindo o estado de reprodução.
    */
   _updateUI(isPlayingOverride) {
     const isPlaying =
       typeof isPlayingOverride === 'boolean'
         ? isPlayingOverride
-        : this.activeAdapter.isPlaying();
+        : this.adapter.isPlaying();
 
     // Botão Play/Pause
     if (this.ui.btnPlayPause) {
@@ -385,12 +603,12 @@ class PlayerManager {
       this.ui.btnPlayPause.classList.toggle('is-playing', isPlaying);
     }
 
-    // Ondas Sonoras (Soundwave)
+    // Ondas Sonoras
     if (this.ui.soundwave) {
       this.ui.soundwave.classList.toggle('active', isPlaying);
     }
 
-    // Nome e Artista da Música (com distinção de Rádio Ambiente vs Cena)
+    // Título e Artista
     if (this.currentTrack) {
       const isAmbient = this.currentTrack.role === 'ambient';
       if (this.ui.trackTitle) {
@@ -398,7 +616,7 @@ class PlayerManager {
           ? `📻 ${this.currentTrack.title}`
           : `♪ ${this.currentTrack.title}`;
         this.ui.trackTitle.title = isAmbient
-          ? `Rádio Ambiente Contínua: ${this.currentTrack.title}`
+          ? `Rádio Ambiente Spotify: ${this.currentTrack.title}`
           : `Trilha de Cena: ${this.currentTrack.title}`;
       }
       if (this.ui.trackArtist) {
@@ -411,11 +629,14 @@ class PlayerManager {
       }
     } else {
       if (this.ui.trackTitle) this.ui.trackTitle.textContent = 'Aguardando trilha...';
-      if (this.ui.trackArtist) this.ui.trackArtist.textContent = 'Inicie a leitura para ativar a rádio';
+      if (this.ui.trackArtist) this.ui.trackArtist.textContent = 'Inicie a leitura para ativar o áudio';
     }
   }
 
   _onPlayerStateChanged(isPlaying) {
+    if (isPlaying) {
+      this.consecutiveErrorCount = 0;
+    }
     this._updateUI(isPlaying);
   }
 }

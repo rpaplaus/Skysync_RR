@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Skysync — Leitura Imersiva: Skyhaven</title>
-  <meta name="description" content="Skysync: Experiência de leitura imersiva com trilha sonora adaptativa sincronizada por parágrafo para a obra Skyhaven.">
+  <title>Skysync — Leitura Imersiva: Skyhaven (Spotify Edition)</title>
+  <meta name="description" content="Skysync: Experiência de leitura imersiva com trilha sonora adaptativa oficial Spotify sincronizada por parágrafo para a obra Skyhaven.">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   
   <!-- Preconnect para Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,13 +15,15 @@
   <!-- Estilos do Leitor -->
   <link rel="stylesheet" href="/static/css/reader.css">
   <link rel="stylesheet" href="css/reader.css">
+
+  <!-- Spotify Web Playback SDK -->
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
 </head>
 <body class="has-splash">
 
   <!-- ===================================================================
-       TELA INICIAL / SPLASH SCREEN (Fase 5 - Requisito 1)
-       Impede a entrada abrupta no texto, gerencia 'Continuar Leitura' e
-       destrava a política de autoplay do navegador com um clique imersivo.
+       TELA INICIAL / SPLASH SCREEN (Fase 13: Implantação Oficial Spotify)
+       Portão único de entrada via Spotify Premium e liberação de áudio.
        =================================================================== -->
   <section class="splash-screen" id="splash-screen" aria-label="Tela Inicial de Apresentação">
     <div class="splash-backdrop">
@@ -30,7 +33,7 @@
     </div>
     
     <div class="splash-card">
-      <div class="splash-badge">✦ Experiência Sinestésica Adaptativa ✦</div>
+      <div class="splash-badge">✦ Experiência Sinestésica Adaptativa • 100% Spotify ✦</div>
       <h1 class="splash-title">Skysync — Skyhaven</h1>
       <p class="splash-subtitle">Crônicas do Éter • Sincronia Literária & Musical</p>
 
@@ -39,22 +42,26 @@
       </div>
 
       <p class="splash-description">
-        Mergulhe nas rotas aéreas e nas vibrações de Skyhaven. Cada capítulo é acompanhado por uma trilha sonora que antecipa o ritmo e a emoção de cada palavra.
+        Mergulhe nas rotas aéreas e nas vibrações de Skyhaven. Cada capítulo é acompanhado por uma trilha sonora oficial via Spotify que antecipa o ritmo e a emoção de cada palavra.
       </p>
 
-      <!-- Botões de Ação da Splash Screen -->
-      <div class="splash-actions">
-        <!-- Botão Continuar Leitura (Em destaque quando há progresso salvo) -->
-        <button class="splash-btn splash-btn-primary" id="btn-continue-reading" style="display: none;">
-          <span class="btn-icon">⚡</span>
-          <span class="btn-text" id="btn-continue-reading-text">Continuar Leitura (Capítulo 1)</span>
-          <span class="btn-glow"></span>
-        </button>
+      <!-- Mensagem de Status/Erro da Autenticação (se houver) -->
+      <div class="splash-auth-notice" id="splash-auth-notice" style="display: none;"></div>
 
-        <!-- Botão Iniciar Leitura (Do zero) -->
-        <button class="splash-btn splash-btn-secondary" id="btn-start-reading">
-          <span class="btn-icon">📖</span>
-          <span class="btn-text">Iniciar Leitura</span>
+      <!-- Botões de Ação da Splash Screen (Fase 13) -->
+      <div class="splash-actions" id="splash-actions">
+        <!-- Botão Único de Entrada Inicial: Conectar com Spotify Premium -->
+        <a href="/api/v1/auth/login" class="splash-btn splash-btn-spotify" id="btn-spotify-login">
+          <span class="btn-icon">🎧</span>
+          <span class="btn-text">Conectar com Spotify Premium</span>
+          <span class="btn-glow"></span>
+        </a>
+
+        <!-- Botão Iniciar/Continuar Leitura (Revelado após autenticação com token) -->
+        <button class="splash-btn splash-btn-primary" id="btn-enter-reading" style="display: none;">
+          <span class="btn-icon">▶</span>
+          <span class="btn-text" id="btn-enter-reading-text">Iniciar/Continuar Leitura</span>
+          <span class="btn-glow"></span>
         </button>
       </div>
 
@@ -113,7 +120,7 @@
       <button class="btn-control btn-icon-only" id="btn-close-drawer" title="Fechar menu">✕</button>
     </div>
 
-    <!-- Abas Superiores do Índice (Requisito 4) -->
+    <!-- Abas Superiores do Índice -->
     <div class="drawer-tabs" role="tablist">
       <button class="drawer-tab-btn" id="drawer-tab-btn-preface" role="tab" aria-selected="false" data-tab="preface">
         <span>📜</span>
@@ -163,7 +170,7 @@
       Iniciando leitura imersiva...
     </div>
 
-    <!-- Dock do Dual Player -->
+    <!-- Dock do Spotify Player -->
     <div class="player-hud-dock" id="player-hud-dock">
       <!-- Botão Play/Pause Global -->
       <button class="btn-player-toggle" id="btn-player-play" title="Reproduzir/Pausar Trilha">
@@ -198,25 +205,16 @@
         >
       </div>
 
-      <!-- Seletor do Provedor (Dual Player) -->
-      <div class="player-provider-wrapper">
-        <select id="player-provider-select" class="provider-select" title="Alternar Provedor de Áudio">
-          <option value="youtube">YouTube (Free)</option>
-          <option value="spotify">Spotify (Embed)</option>
-        </select>
+      <!-- Indicador Spotify Premium Oficial (Fase 13) -->
+      <div class="player-spotify-indicator" title="Skysync: 100% Exclusivo Spotify Web Playback SDK">
+        <span class="spotify-indicator-dot"></span>
+        <span class="spotify-indicator-text">Spotify SDK</span>
       </div>
     </div>
   </footer>
 
-  <!-- Contêineres Ocultos dos Reprodutores Iframe (Dual-Deck YouTube + Spotify) -->
-  <div id="youtube-player-deck-a" class="hidden-player-frame"></div>
-  <div id="youtube-player-deck-b" class="hidden-player-frame"></div>
-  <div id="youtube-player-frame" class="hidden-player-frame"></div>
-  <div id="spotify-player-frame" class="hidden-player-frame"></div>
-
-  <!-- Scripts do Skysync -->
+  <!-- Scripts do Skysync (Fase 13: 100% Exclusivo Spotify) -->
   <script src="/js/reader.js" defer></script>
-  <script src="/js/player/youtube-adapter.js" defer></script>
   <script src="/js/player/spotify-adapter.js" defer></script>
   <script src="/js/player/player-manager.js" defer></script>
   <script src="/js/main.js" defer></script>

@@ -55,19 +55,29 @@ def test_endpoints():
         pref = res.json()
         print(f"  [OK] /api/v1/chapters/cap-preface -> Prefácio carregado com {len(pref['content_blocks'])} notas.")
 
-    # 6. Tracks catalog
+    # 6. Tracks catalog (100% Exclusivo Spotify)
     res = client.get("/api/v1/tracks/catalog")
     assert res.status_code == 200, f"Erro /api/v1/tracks/catalog: {res.text}"
     catalog = res.json()
-    assert "Aetherium Dreams" in catalog
-    print(f"  [OK] /api/v1/tracks/catalog -> {len(catalog)} faixas cadastradas no catálogo.")
+    assert "Handle With Care" in catalog
+    assert "youtube" not in str(catalog).lower(), "Aviso: YouTube detectado no catálogo!"
+    print(f"  [OK] /api/v1/tracks/catalog -> {len(catalog)} faixas cadastradas no catálogo (100% Spotify).")
 
-    # 7. Landing page / Root index
+    # 7. Auth Status & Login endpoint check
+    res = client.get("/api/v1/auth/status")
+    assert res.status_code == 200, f"Erro /api/v1/auth/status: {res.text}"
+    auth_info = res.json()
+    print(f"  [OK] /api/v1/auth/status -> Configurado: {auth_info['is_configured']}, Scopes: '{auth_info['scopes']}'")
+
+    # 8. Landing page / Root index
     res = client.get("/")
     assert res.status_code == 200
-    print("  [OK] / -> Frontend index.html servido com sucesso.")
+    assert "spotify-player.js" in res.text
+    assert "youtube-adapter.js" not in res.text
+    print("  [OK] / -> Frontend index.html servido com sucesso (Spotify SDK integrado).")
 
-    print("\n[TODOS OS TESTES PASSARAM COM SUCESSO! 100% FUNCIONAL]")
+    print("\n[TODOS OS TESTES PASSARAM COM SUCESSO! 100% FUNCIONAL - SPOTIFY EXCLUSIVE]")
+
 
 
 if __name__ == "__main__":

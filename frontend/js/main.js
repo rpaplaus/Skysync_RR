@@ -1,13 +1,16 @@
 /**
- * Skysync - Main Orchestrator (Fase 5: UX, Splash Screen & Orquestração de Áudio)
- * Gerencia a tela inicial, lógica de 'Continuar Leitura', disparo do áudio ambiente
- * e inicialização coordenada do Dual Player com Crossfade.
+ * Skysync - Main Orchestrator (Fase 13: 100% Exclusivo Spotify)
+ * Gerencia a tela inicial com autenticação obrigatória via Spotify Premium,
+ * captura e persistência do token OAuth recebido via callback (?token=XYZ),
+ * liberação do botão '▶ Iniciar/Continuar Leitura' e acionamento coordenado do Spotify SDK.
  */
 
 (function () {
   'use strict';
 
   const STORAGE_KEYS = {
+    TOKEN: 'skysync_spotify_token',
+    LEGACY_TOKEN: 'spotify_access_token',
     LAST_CHAPTER: 'skysync_last_chapter_id',
     LAST_PARAGRAPH: 'skysync_last_paragraph_id',
     LAST_TRACK_ID: 'skysync_last_track_id',
@@ -15,102 +18,167 @@
 
   // Referências do DOM da Splash Screen
   const splashEl = document.getElementById('splash-screen');
-  const btnStartReading = document.getElementById('btn-start-reading');
-  const btnContinueReading = document.getElementById('btn-continue-reading');
-  const btnContinueText = document.getElementById('btn-continue-reading-text');
+  const btnSpotifyLogin = document.getElementById('btn-spotify-login');
+  const btnEnterReading = document.getElementById('btn-enter-reading');
+  const btnEnterReadingText = document.getElementById('btn-enter-reading-text');
+  const splashAuthNotice = document.getElementById('splash-auth-notice');
 
   let playerManager = null;
   let bookData = null;
 
   async function startApplication() {
-    console.log('🌌 [Skysync] Inicializando sistema Skyhaven (Fase 5)...');
+    console.log('🌌 [Skysync] Inicializando sistema Skyhaven (Fase 13: 100% Exclusivo Spotify)...');
 
-    // 1. Inicializa o PlayerManager
+    // 1. Processa parâmetros de autenticação na URL (Callback do Spotify)
+    handleUrlAuthParameters();
+
+    // 2. Aguarda ou recupera os dados do livro
+    if (window.SkysyncReader && window.SkysyncReader.getBook()) {
+      bookData = window.SkysyncReader.getBook();
+      updateSplashState();
+    } else {
+      window.addEventListener('skysync:book-ready', (e) => {
+        bookData = e.detail?.book;
+        updateSplashState();
+      });
+    }
+
+    // 3. Inicializa o PlayerManager (Spotify Web Playback SDK)
     if (window.PlayerManager) {
       try {
         playerManager = new window.PlayerManager();
         await playerManager.init();
         window.skysyncPlayer = playerManager;
-        console.log('🎵 [Skysync] PlayerManager pronto com Dual-Deck Crossfade.');
+        console.log('🎧 [Skysync] PlayerManager pronto com Spotify Web Playback SDK.');
       } catch (e) {
         console.error('[Skysync] Falha ao inicializar PlayerManager:', e);
       }
     }
 
-    // 2. Aguarda ou recupera os dados do livro
-    if (window.SkysyncReader && window.SkysyncReader.getBook()) {
-      bookData = window.SkysyncReader.getBook();
-      setupSplashScreen();
-    } else {
-      window.addEventListener('skysync:book-ready', (e) => {
-        bookData = e.detail?.book;
-        setupSplashScreen();
-      });
-    }
-
-    // Configura botões da Splash Screen
+    // 4. Configura eventos dos botões da Splash Screen
     setupSplashButtons();
   }
 
   /**
-   * Configura o botão 'Continuar Leitura' caso exista progresso salvo no LocalStorage.
+   * Processa parâmetros de URL vindos do OAuth (/api/v1/auth/callback):
+   * Se ?token=XYZ estiver presente: salva no localStorage e limpa a URL.
    */
-  function setupSplashScreen() {
+  function handleUrlAuthParameters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const authError = urlParams.get('auth_error');
+
+    if (token) {
+      console.log('🔑 [Skysync Auth] Token de acesso do Spotify recebido via callback. Salvando no LocalStorage...');
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+      localStorage.setItem(STORAGE_KEYS.LEGACY_TOKEN, token);
+
+      // Limpa os parâmetros sensíveis da barra de endereços sem recarregar
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+
+      if (splashAuthNotice) {
+        splashAuthNotice.className = 'splash-auth-notice success';
+        splashAuthNotice.textContent = '✓ Conectado ao Spotify Premium com sucesso!';
+        splashAuthNotice.style.display = 'block';
+      }
+    } else if (authError) {
+      console.warn('⚠️ [Skysync Auth] Erro retornado na autenticação do Spotify:', authError);
+      if (splashAuthNotice) {
+        splashAuthNotice.className = 'splash-auth-notice error';
+        splashAuthNotice.textContent = `Aviso: Falha na conexão com Spotify (${authError}). Tente novamente.`;
+        splashAuthNotice.style.display = 'block';
+      }
+    }
+
+    updateSplashState();
+  }
+
+  /**
+   * Obtém o token de acesso salvo.
+   */
+  function getSavedToken() {
+    return (
+      localStorage.getItem(STORAGE_KEYS.TOKEN) ||
+      localStorage.getItem(STORAGE_KEYS.LEGACY_TOKEN) ||
+      ''
+    );
+  }
+
+  /**
+   * Atualiza o estado da Splash Screen:
+   * - Se NÃO houver token: Mostra apenas '🎧 Conectar com Spotify Premium'.
+   * - Se HOUVER token: Oculta o login e mostra '▶ Iniciar/Continuar Leitura'.
+   */
+  function updateSplashState() {
+    const token = getSavedToken();
+    const hasToken = Boolean(token);
     const lastChapterId = localStorage.getItem(STORAGE_KEYS.LAST_CHAPTER);
-    const lastParagraphId = localStorage.getItem(STORAGE_KEYS.LAST_PARAGRAPH);
 
-    if (lastChapterId && btnContinueReading) {
-      let label = 'Continuar Leitura';
+    if (hasToken) {
+      // Usuário autenticado: oculta o botão de login e exibe o de entrada na leitura
+      if (btnSpotifyLogin) btnSpotifyLogin.style.display = 'none';
+      if (btnEnterReading) btnEnterReading.style.display = 'inline-flex';
 
-      if (lastChapterId === 'cap-preface' || lastChapterId.toLowerCase().includes('preface')) {
-        label = 'Continuar Leitura (Prefácio)';
-      } else if (bookData && bookData.chapters) {
-        const ch = bookData.chapters.find((c) => c.id === lastChapterId);
-        if (ch) {
-          if (ch.is_preface || ch.number === 0 || ch.id === 'cap-preface') {
-            label = 'Continuar Leitura (Prefácio)';
-          } else {
-            label = `Continuar Leitura (Capítulo ${ch.number})`;
+      // Define rótulo inteligente (Continuar Leitura se houver progresso prévio)
+      let label = '▶ Iniciar/Continuar Leitura';
+      if (lastChapterId) {
+        if (lastChapterId === 'cap-preface' || lastChapterId.toLowerCase().includes('preface')) {
+          label = '▶ Continuar Leitura (Prefácio)';
+        } else if (bookData && bookData.chapters) {
+          const ch = bookData.chapters.find((c) => c.id === lastChapterId);
+          if (ch) {
+            label = ch.is_preface || ch.number === 0
+              ? '▶ Continuar Leitura (Prefácio)'
+              : `▶ Continuar Leitura (Capítulo ${ch.number})`;
+          }
+        } else {
+          const match = lastChapterId.match(/cap-0*(\d+)/i);
+          if (match && match[1] !== '0') {
+            label = `▶ Continuar Leitura (Capítulo ${match[1]})`;
           }
         }
-      } else {
-        const match = lastChapterId.match(/cap-0*(\d+)/i);
-        if (match && match[1] !== '0') {
-          label = `Continuar Leitura (Capítulo ${match[1]})`;
-        } else if (lastChapterId.includes('preface') || (match && match[1] === '0')) {
-          label = 'Continuar Leitura (Prefácio)';
-        }
       }
 
-      if (btnContinueText) {
-        btnContinueText.textContent = label;
+      if (btnEnterReadingText) {
+        btnEnterReadingText.textContent = label;
       }
-      btnContinueReading.style.display = 'inline-flex';
-      console.log(`📌 [Skysync Splash] Progresso detectado no LocalStorage: ${label} (§${lastParagraphId})`);
-    } else if (btnContinueReading) {
-      btnContinueReading.style.display = 'none';
+      console.log('🎧 [Skysync Splash] Usuário autenticado. Botão de leitura pronto:', label);
+    } else {
+      // Usuário não autenticado: exige conexão com Spotify Premium
+      if (btnSpotifyLogin) btnSpotifyLogin.style.display = 'inline-flex';
+      if (btnEnterReading) btnEnterReading.style.display = 'none';
     }
   }
 
   /**
-   * Configura os cliques dos botões da Splash Screen.
+   * Configura os eventos de clique dos botões da Splash Screen e Player Bar.
    */
   function setupSplashButtons() {
-    if (btnStartReading) {
-      btnStartReading.addEventListener('click', () => {
-        handleEnterReader({ isResume: false });
+    if (btnEnterReading) {
+      btnEnterReading.addEventListener('click', () => {
+        // Correção 1: Chamada síncrona de unlockAudio() antes de qualquer await
+        if (playerManager?.adapter && typeof playerManager.adapter.unlockAudio === 'function') {
+          playerManager.adapter.unlockAudio();
+        }
+        const lastChapterId = localStorage.getItem(STORAGE_KEYS.LAST_CHAPTER);
+        handleEnterReader({ isResume: Boolean(lastChapterId) });
       });
     }
 
-    if (btnContinueReading) {
-      btnContinueReading.addEventListener('click', () => {
-        handleEnterReader({ isResume: true });
+    // Correção 1: No clique do botão Play/Pause da barra do player, chame sincronamente unlockAudio()
+    const btnPlayerPlay = document.getElementById('btn-player-play');
+    if (btnPlayerPlay) {
+      btnPlayerPlay.addEventListener('click', () => {
+        if (playerManager?.adapter && typeof playerManager.adapter.unlockAudio === 'function') {
+          playerManager.adapter.unlockAudio();
+        }
       });
     }
   }
 
   /**
-   * Transição da Splash Screen para a Leitura e disparo da música de fundo ambiente.
+   * Transição da Splash Screen para a Leitura (Correções 1, 3 e 4).
    */
   async function handleEnterReader({ isResume }) {
     console.log(`🚀 [Skysync] Entrando no modo de leitura (isResume=${isResume})...`);
@@ -121,22 +189,33 @@
     }
     document.body.classList.remove('has-splash');
 
-    // 2. Dispara a música de fundo ambiente/padrão imediatamente
-    // O clique do usuário no botão destrava a política de Autoplay dos navegadores!
+    // 2. Correção 3: Sempre força isManuallyPaused = false ao iniciar a leitura
     if (playerManager) {
-      playerManager.playAmbientTrack();
+      playerManager.isManuallyPaused = false;
+      playerManager.pausedOnCurrentPage = false;
     }
 
-    // 3. Posiciona o leitor
+    // 3. Correção 4 (Regra de Ouro): Ao clicar em "Iniciar Leitura", a primeira música a tocar
+    // DEVE SER OBRIGATORIAMENTE a primeira música de gatilho: "Handle With Care" - Traveling Wilburys
+    if (playerManager && typeof playerManager.playInitialTrack === 'function') {
+      playerManager.playInitialTrack();
+    }
+
+    // 4. Conecta o player sob o contexto do gesto do usuário (AudioContext Unlock)
+    if (playerManager && typeof playerManager.connect === 'function') {
+      try {
+        await playerManager.connect();
+      } catch (e) {
+        console.warn('[Skysync] Aviso ao conectar player:', e);
+      }
+    }
+
+    // 5. Renderiza a página inicial (se houver gatilho na página, a guarda currentTrack.id === newTrack.id evita duplicidade)
     if (isResume) {
-      // Retoma exatamente onde o usuário parou
       if (window.SkysyncReader && window.SkysyncReader.restoreLastPosition) {
-        setTimeout(() => {
-          window.SkysyncReader.restoreLastPosition();
-        }, 350);
+        window.SkysyncReader.restoreLastPosition();
       }
     } else {
-      // Inicia do zero: limpa marcadores antigos e abre o início do livro
       localStorage.removeItem(STORAGE_KEYS.LAST_PARAGRAPH);
       localStorage.removeItem(STORAGE_KEYS.LAST_CHAPTER);
       if (window.SkysyncReader && window.SkysyncReader.openChapterByIndex) {

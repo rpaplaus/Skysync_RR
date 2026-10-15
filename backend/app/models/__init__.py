@@ -8,7 +8,6 @@ from .book import (
     Track,
     Providers,
     SpotifyProvider,
-    YouTubeProvider,
     PlaybackOptions,
 )
 
@@ -22,6 +21,5 @@ __all__ = [
     "Track",
     "Providers",
     "SpotifyProvider",
-    "YouTubeProvider",
     "PlaybackOptions",
 ]

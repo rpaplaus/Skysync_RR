@@ -31,7 +31,10 @@ env/
 ENV/
 
 # IDE & Editors
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
@@ -43,3 +46,8 @@ desktop.ini
 
 # Logs
 *.log
+
+# Environment variables
+.env
+*.env
+!.env.example

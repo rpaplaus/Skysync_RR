@@ -75,34 +75,7 @@
       // Renderiza Sumário no Drawer com Abas (Prefácio vs Capítulos)
       renderTableOfContents(state.book.chapters);
 
-      // Determina posição inicial (restaura progresso salvo ou inicia do começo)
-      const lastChapterId = localStorage.getItem(STORAGE_KEYS.LAST_CHAPTER);
-      const lastParagraphId = localStorage.getItem(STORAGE_KEYS.LAST_PARAGRAPH);
-
-      if (lastChapterId) {
-        const foundIdx = state.book.chapters.findIndex((c) => c.id === lastChapterId);
-        state.currentChapterIndex = foundIdx !== -1 ? foundIdx : 0;
-      } else {
-        state.currentChapterIndex = 0;
-      }
-
-      // Calcula as páginas do capítulo inicial
-      const chapter = state.book.chapters[state.currentChapterIndex];
-      state.pages = paginateChapter(chapter);
-
-      if (lastParagraphId) {
-        const pIdx = state.pages.findIndex((page) =>
-          page.some((b) => b.id === lastParagraphId)
-        );
-        state.currentPageIndex = pIdx !== -1 ? pIdx : 0;
-      } else {
-        state.currentPageIndex = 0;
-      }
-
       state.isLoaded = true;
-
-      // Renderiza a página ativa
-      renderCurrentPage();
 
       // Dispara evento informando que os dados do livro estão prontos para a Splash Screen
       window.dispatchEvent(
@@ -392,16 +365,15 @@
     }
   }
 
-  // --- GATILHO DE ÁUDIO ANTECIPADO (LOOKAHEAD TRIGGER - REQUISITO 2) ---
+  // --- GATILHO DE ÁUDIO ANTECIPADO (LOOKAHEAD TRIGGER N+1 - CORREÇÃO 4) ---
   /**
-   * Quando o usuário navega para a Página N, checa o array de blocos da Página N + 1.
-   * Se houver um audioTrigger na página seguinte, dispara o evento de áudio imediatamente,
-   * iniciando o crossfade no PlayerManager enquanto o usuário ainda lê a página atual.
+   * 1. Verifica primeiro a página seguinte (N + 1). Se N + 1 contiver audio_trigger,
+   *    dispara esse gatilho após 2000ms de leitura da página N.
+   * 2. Se o leitor pular direto para uma página N que tem gatilho, dispara com delay_ms: 500.
+   * 3. Se nem N + 1 nem N contiverem gatilho, emite audioTrigger: null para cancelar timers pendentes.
    */
   function checkLookaheadTrigger() {
-    const currentPageBlocks = state.pages[state.currentPageIndex] || [];
-
-    // 1. Identifica os blocos da Página N + 1
+    // 1. Prioridade Absoluta: Antecipação de Gatilho (1 Página Antes — Lookahead N+1)
     let nextPageBlocks = [];
     if (state.currentPageIndex + 1 < state.pages.length) {
       nextPageBlocks = state.pages[state.currentPageIndex + 1];
@@ -413,36 +385,69 @@
       }
     }
 
-    // 2. Busca audioTrigger na página seguinte (Página N + 1)
     const nextTriggerBlock = nextPageBlocks.find(
       (b) => b.audio_trigger && b.audio_trigger.track
     );
 
     if (nextTriggerBlock) {
       const track = nextTriggerBlock.audio_trigger.track;
+      const currentTrackId = window.skysyncPlayer?.currentTrack?.id;
+
+      // Se a música de N + 1 já estiver tocando, simplesmente continua sem reiniciar
+      if (currentTrackId === track.id) {
+        console.log(
+          `🎵 [Skysync Lookahead N+1] Faixa antecipada '${track.title}' já está em reprodução (currentTrack). Mantendo sem reiniciar.`
+        );
+        return;
+      }
+
       console.log(
-        `🎵 [Skysync Lookahead] Gatilho antecipado detectado na Página ${state.currentPageIndex + 2}: ` +
-        `'${track.title}' (§${nextTriggerBlock.order}). Iniciando crossfade antecipado...`
+        `🎵 [Skysync Lookahead N+1] Gatilho antecipado detectado na Página ${state.currentPageIndex + 2}: ` +
+        `'${track.title}' (§${nextTriggerBlock.order}). Disparando após 2000ms de leitura da página atual...`
       );
-      dispatchAudioTrigger(nextTriggerBlock, 300);
+      dispatchAudioTrigger(nextTriggerBlock, 2000);
       return;
     }
 
-    // 3. Fallback: se a página seguinte não contiver gatilho, mas a página atual contiver
-    // um gatilho que ainda não está ativo no player
+    // 2. Se a página N + 1 não tem gatilho, verifica se a página atual N tem gatilho (ex: pulo direto para ela)
+    const currentPageBlocks = state.pages[state.currentPageIndex] || [];
     const currentTriggerBlock = currentPageBlocks.find(
       (b) => b.audio_trigger && b.audio_trigger.track
     );
+
     if (currentTriggerBlock) {
-      const trackId = currentTriggerBlock.audio_trigger.track.id;
-      const lastTrackId = localStorage.getItem(STORAGE_KEYS.LAST_TRACK_ID);
-      if (trackId !== lastTrackId) {
+      const track = currentTriggerBlock.audio_trigger.track;
+      const currentTrackId = window.skysyncPlayer?.currentTrack?.id;
+
+      // Se a música já estiver tocando em playerManager.currentTrack, mantém sem reiniciar
+      if (currentTrackId === track.id) {
         console.log(
-          `🎵 [Skysync Trigger] Gatilho presente na página atual: '${currentTriggerBlock.audio_trigger.track.title}'`
+          `🎵 [Skysync Trigger] Faixa '${track.title}' já está tocando em playerManager.currentTrack. Mantendo sem reiniciar.`
         );
-        dispatchAudioTrigger(currentTriggerBlock, 1000);
+        return;
       }
+
+      console.log(
+        `🎵 [Skysync Trigger] Gatilho presente na Página atual ${state.currentPageIndex + 1} (não tocando ainda): ` +
+        `'${track.title}' (§${currentTriggerBlock.order}). Disparando com delay_ms: 500...`
+      );
+      dispatchAudioTrigger(currentTriggerBlock, 500);
+      return;
     }
+
+    // 3. Sem gatilho em N + 1 nem em N: cancela timers pendentes de páginas anteriores
+    const currentChapter = state.book?.chapters?.[state.currentChapterIndex];
+    window.dispatchEvent(
+      new CustomEvent('skysync:paragraph-change', {
+        detail: {
+          paragraphId: currentPageBlocks[0]?.id || null,
+          chapterId: currentChapter ? currentChapter.id : null,
+          pageIndex: state.currentPageIndex,
+          block: currentPageBlocks[0] || null,
+          audioTrigger: null,
+        },
+      })
+    );
   }
 
   function dispatchAudioTrigger(block, delayMs) {
@@ -459,6 +464,7 @@
         detail: {
           paragraphId: block.id,
           chapterId: currentChapter ? currentChapter.id : null,
+          pageIndex: state.currentPageIndex,
           block: block,
           audioTrigger: audioTriggerPayload,
         },

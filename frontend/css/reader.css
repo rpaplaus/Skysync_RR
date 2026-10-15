@@ -899,15 +899,16 @@ body:not(.has-splash) {
   color: var(--text-primary);
 }
 
-/* Contêineres ocultos para iframes de áudio */
+/* Contêineres invisíveis em viewport para iframes de áudio (evita throttling/bloqueio do Chrome e YouTube) */
 .hidden-player-frame {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  left: -9999px;
-  top: -9999px;
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 200px;
+  height: 200px;
   opacity: 0.001;
   pointer-events: none;
+  z-index: -999;
   overflow: hidden;
 }
 
@@ -1317,5 +1318,92 @@ body:not(.has-splash) {
   font-size: 1.5rem;
   color: var(--text-primary);
 }
+
+/* =====================================================================
+   Fase 13: Estilos 100% Exclusivo Spotify
+   ===================================================================== */
+
+/* Botão Oficial: Conectar com Spotify Premium */
+.splash-btn-spotify {
+  background: linear-gradient(135deg, #107c35 0%, #1db954 50%, #1ed760 100%);
+  color: #05140b;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 24px rgba(29, 185, 84, 0.45), 0 0 20px rgba(30, 215, 96, 0.3);
+  text-decoration: none;
+}
+
+.splash-btn-spotify:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(29, 185, 84, 0.65), 0 0 30px rgba(30, 215, 96, 0.5);
+  filter: brightness(1.12);
+  color: #000000;
+}
+
+.splash-btn-spotify:active {
+  transform: translateY(0);
+}
+
+.splash-btn-spotify .btn-glow {
+  position: absolute;
+  inset: -100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: shineGlow 2.5s infinite;
+}
+
+/* Notificação de Status / Erro na Splash Screen */
+.splash-auth-notice {
+  margin-bottom: 18px;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  text-align: center;
+  max-width: 420px;
+}
+
+.splash-auth-notice.error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.splash-auth-notice.success {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #86efac;
+}
+
+/* Indicador Spotify no HUD Inferior */
+.player-spotify-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(29, 185, 84, 0.1);
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #1ed760;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.spotify-indicator-dot {
+  width: 7px;
+  height: 7px;
+  background-color: #1ed760;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #1ed760;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
 
 

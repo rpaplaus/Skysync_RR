@@ -8,14 +8,8 @@ class SpotifyProvider(BaseModel):
     preview_url: Optional[str] = None
 
 
-class YouTubeProvider(BaseModel):
-    video_id: str
-    start_seconds: int = 0
-
-
 class Providers(BaseModel):
-    spotify: Optional[SpotifyProvider] = None
-    youtube: Optional[YouTubeProvider] = None
+    spotify: SpotifyProvider
 
 
 class PlaybackOptions(BaseModel):

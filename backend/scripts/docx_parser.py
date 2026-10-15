@@ -40,7 +40,6 @@ from app.models.book import (
     Track,
     Providers,
     SpotifyProvider,
-    YouTubeProvider,
     PlaybackOptions,
 )
 
@@ -76,6 +75,66 @@ def normalize_match_text(text: str) -> str:
     for old, new in replacements.items():
         t = t.replace(old, new)
     return " ".join(t.split()).lower()
+
+
+CLOSING_PUNCTUATION = ('.', '!', '?', '"', '”', '“', '»', '›', "'", '’', '…')
+DIALOGUE_DASHES = ('—', '–', '-', '―')
+
+
+def merge_broken_paragraphs(paragraphs: List[str]) -> List[str]:
+    """
+    Mescla parágrafos fragmentados por 'hard breaks' (quebras de linha forçadas
+    decorrentes da conversão de PDF para DOCX).
+
+    Heurísticas:
+    1. Regra de Diálogo:
+       Se o parágrafo N+1 iniciar com travessão de diálogo (—, -, –), preserva a quebra,
+       a menos que seja absolutamente claro que a linha anterior foi quebrada ao meio
+       (ex.: parágrafo N sem pontuação de fechamento/dois-pontos e N+1 continuando com travessão e minúscula).
+       Por via de dúvida, preserva a quebra de diálogos.
+    2. Regra de Junção:
+       Se o parágrafo N NÃO termina com pontuação de fechamento (., !, ?, ", ”, », ...)
+       OU se o parágrafo N+1 começa com letra minúscula, concatena N+1 ao final de N
+       separando por um espaço simples.
+    """
+    if not paragraphs:
+        return []
+
+    merged: List[str] = []
+    for p in paragraphs:
+        text = p.strip()
+        if not text:
+            continue
+
+        if not merged:
+            merged.append(text)
+            continue
+
+        prev = merged[-1]
+        ends_with_closing = prev.endswith(CLOSING_PUNCTUATION)
+        starts_with_dash = text.startswith(DIALOGUE_DASHES)
+
+        if starts_with_dash:
+            content_after_dash = text.lstrip("—–-― ")
+            first_alpha = next((c for c in content_after_dash if c.isalpha()), None)
+            is_broken_mid_sentence = (
+                not ends_with_closing
+                and not prev.endswith(":")
+                and first_alpha is not None
+                and first_alpha.islower()
+            )
+            should_merge = is_broken_mid_sentence
+        else:
+            first_alpha = next((c for c in text if c.isalpha()), None)
+            starts_with_lowercase = first_alpha is not None and first_alpha.islower()
+            should_merge = (not ends_with_closing) or starts_with_lowercase
+
+        if should_merge:
+            merged[-1] = f"{merged[-1]} {text}"
+        else:
+            merged.append(text)
+
+    return merged
 
 
 def load_tracks_catalog(catalog_path: Path) -> Dict[str, Any]:
@@ -118,10 +177,8 @@ def resolve_track(track_identifier: str, catalog: Dict[str, Any]) -> Track:
     if matched_data:
         prov_data = matched_data.get("providers", {})
         sp_data = prov_data.get("spotify")
-        yt_data = prov_data.get("youtube")
 
         spotify_prov = SpotifyProvider(**sp_data) if sp_data else None
-        youtube_prov = YouTubeProvider(**yt_data) if yt_data else None
 
         opts_data = matched_data.get("default_playback_options")
         playback_opts = PlaybackOptions(**opts_data) if opts_data else PlaybackOptions()
@@ -133,7 +190,7 @@ def resolve_track(track_identifier: str, catalog: Dict[str, Any]) -> Track:
             album=matched_data.get("album"),
             duration_seconds=matched_data.get("duration_seconds"),
             role=matched_data.get("role", "trigger"),
-            providers=Providers(spotify=spotify_prov, youtube=youtube_prov),
+            providers=Providers(spotify=spotify_prov or SpotifyProvider(uri=f"spotify:track:{matched_data.get('id', '')}", id=matched_data.get('id', ''))),
             default_playback_options=playback_opts,
         )
 
@@ -150,8 +207,7 @@ def resolve_track(track_identifier: str, catalog: Dict[str, Any]) -> Track:
         artist="Trilha Sonora Original",
         role="trigger",
         providers=Providers(
-            spotify=SpotifyProvider(uri=f"spotify:search:{display_title}", id=track_slug),
-            youtube=YouTubeProvider(video_id="search", start_seconds=0),
+            spotify=SpotifyProvider(uri=f"spotify:track:{track_slug}", id=track_slug),
         ),
         default_playback_options=PlaybackOptions(),
     )
@@ -258,16 +314,24 @@ def parse_docx(
     print(f"  [✓] Resíduos eliminados: {discarded_digit_count} números de página soltos.")
     print(f"  [✓] Índice físico descartado: {discarded_index_count} linhas ignoradas.")
 
+    # Fase 10: Reconstrução Tipográfica e Heurística de Mesclagem
+    # Executa a limpeza de hard breaks no Prefácio e em cada capítulo ANTES dos gatilhos
+    preface_raw = raw_preface_paragraphs
+    preface_paragraphs = merge_broken_paragraphs(preface_raw)
+    for chapter in raw_chapters_data:
+        chapter["paragraphs"] = merge_broken_paragraphs(chapter["paragraphs"])
+    print(f"  [✓] Heurística de mesclagem aplicada: quebras forçadas limpas no Prefácio e Capítulos.")
+
     chapters: List[Chapter] = []
     WORDS_PER_PAGE = 250
 
     # 1. Monta Bloco de Prefácio & Notas Iniciais (is_preface=True)
-    if raw_preface_paragraphs:
+    if preface_paragraphs:
         preface_blocks: List[ContentBlock] = []
         words_accumulator = 0
         current_page = 1
 
-        for idx, text in enumerate(raw_preface_paragraphs):
+        for idx, text in enumerate(preface_paragraphs):
             words = len(text.split())
             words_accumulator += words
             if words_accumulator > WORDS_PER_PAGE:
