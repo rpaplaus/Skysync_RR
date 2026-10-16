@@ -76,6 +76,18 @@ def test_endpoints():
     assert "youtube-adapter.js" not in res.text
     print("  [OK] / -> Frontend index.html servido com sucesso (Spotify SDK integrado).")
 
+    # 9. Fase 18: Cache-Busting HTTP Headers
+    for path in ["/api/v1/tracks_catalog.json", "/api/v1/skysync_data.json", "/tracks_catalog.json", "/skysync_data.json"]:
+        res = client.get(path)
+        assert res.status_code == 200, f"Erro ao acessar {path}: {res.status_code}"
+        cc = res.headers.get("cache-control", "").lower()
+        pragma = res.headers.get("pragma", "").lower()
+        expires = res.headers.get("expires", "")
+        assert "no-cache" in cc and "no-store" in cc and "must-revalidate" in cc, f"{path} Cache-Control incorreto: {cc}"
+        assert pragma == "no-cache", f"{path} Pragma incorreto: {pragma}"
+        assert expires == "0", f"{path} Expires incorreto: {expires}"
+        print(f"  [OK] {path} -> Headers anti-cache validados (Cache-Control: {cc}, Pragma: {pragma}, Expires: {expires})")
+
     print("\n[TODOS OS TESTES PASSARAM COM SUCESSO! 100% FUNCIONAL - SPOTIFY EXCLUSIVE]")
 
 

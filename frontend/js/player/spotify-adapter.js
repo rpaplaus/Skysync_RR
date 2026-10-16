@@ -21,6 +21,7 @@ class SpotifyAdapter {
     this.STORAGE_KEYS = {
       TOKEN: 'skysync_spotify_token',
       LEGACY_TOKEN: 'spotify_access_token',
+      EXPIRATION_TIME: 'skysync_spotify_expiration_time',
       VOLUME: 'skysync_volume',
     };
 
@@ -73,14 +74,48 @@ class SpotifyAdapter {
   }
 
   /**
-   * Obtém o token de autenticação salvo no LocalStorage.
+   * Requisito 2 (Fase 18: Validação Rigorosa de Token / Anti-Zombie Token):
+   * Verifica se o token expirou (Date.now() > expiration_time).
+   * Se expirado ou inválido, apaga do localStorage e retorna null,
+   * forçando o frontend a mostrar o botão de 'Conectar Spotify' novamente.
    */
   getToken() {
-    return (
+    const token =
       localStorage.getItem(this.STORAGE_KEYS.TOKEN) ||
       localStorage.getItem(this.STORAGE_KEYS.LEGACY_TOKEN) ||
-      ''
-    );
+      null;
+
+    if (!token) {
+      return null;
+    }
+
+    const expirationStr = localStorage.getItem(this.STORAGE_KEYS.EXPIRATION_TIME);
+    if (expirationStr) {
+      const expirationTime = parseInt(expirationStr, 10);
+      if (isNaN(expirationTime) || Date.now() > expirationTime) {
+        console.warn('🔒 [Skysync Spotify] Token expirado detectado no LocalStorage (Anti-Zombie Token). Limpando...');
+        this.clearToken();
+        window.dispatchEvent(new CustomEvent('skysync:token-expired'));
+        return null;
+      }
+    } else {
+      // Token sem timestamp de expiração salvo em versões anteriores: trata como expirado
+      console.warn('🔒 [Skysync Spotify] Token legado sem timestamp de expiração. Limpando...');
+      this.clearToken();
+      window.dispatchEvent(new CustomEvent('skysync:token-expired'));
+      return null;
+    }
+
+    return token;
+  }
+
+  /**
+   * Remove tokens e timestamps de autenticação do localStorage.
+   */
+  clearToken() {
+    localStorage.removeItem(this.STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(this.STORAGE_KEYS.LEGACY_TOKEN);
+    localStorage.removeItem(this.STORAGE_KEYS.EXPIRATION_TIME);
   }
 
   /**
@@ -284,25 +319,27 @@ class SpotifyAdapter {
       this._handlePlayerStateChanged(state);
     });
 
-    // Tratamento de erros oficiais do SDK
+    // Tratamento de erros oficiais do SDK (Fase 18: Limpeza de Erros e Pulos)
     this.player.addListener('initialization_error', ({ message }) => {
       console.error('❌ [Skysync Spotify] Erro de inicialização do SDK:', message);
-      if (this.onErrorCallback) this.onErrorCallback(message, this.currentTrack);
+      if (this.onErrorCallback) this.onErrorCallback('initialization_error', this.currentTrack);
     });
 
     this.player.addListener('authentication_error', ({ message }) => {
       console.error('🔒 [Skysync Spotify] Erro de autenticação (Token inválido/expirado):', message);
-      if (this.onErrorCallback) this.onErrorCallback('auth_error', this.currentTrack);
+      this._handleCriticalAuthError('auth_error', message);
     });
 
     this.player.addListener('account_error', ({ message }) => {
       console.error('🚫 [Skysync Spotify] Conta não compatível (Requer Spotify Premium):', message);
-      if (this.onErrorCallback) this.onErrorCallback('premium_required', this.currentTrack);
+      this._handleCriticalAuthError('premium_required', message);
     });
 
     this.player.addListener('playback_error', ({ message }) => {
       console.warn('⚠️ [Skysync Spotify] Erro na reprodução da faixa:', message);
-      if (this.onErrorCallback) this.onErrorCallback(message, this.currentTrack);
+      if (this.onErrorCallback && !this.isTransitioning) {
+        this.onErrorCallback(message, this.currentTrack);
+      }
     });
   }
 
@@ -331,6 +368,12 @@ class SpotifyAdapter {
 
       if (response.ok || response.status === 204 || response.status === 202) {
         console.log('✅ [Skysync Spotify] Playback transferido com sucesso para Skysync Player (play: false mantido).');
+      } else if (response.status === 401 || response.status === 403) {
+        console.warn(`🔒 [Skysync Spotify] Falha de autorização ao transferir playback (HTTP ${response.status}).`);
+        this._handleCriticalAuthError(
+          response.status === 401 ? 'auth_error' : 'premium_required',
+          `HTTP ${response.status} ao transferir playback`
+        );
       } else {
         console.warn(`[Skysync Spotify] Resposta ao transferir playback: HTTP ${response.status}`);
       }
@@ -368,7 +411,9 @@ class SpotifyAdapter {
 
     const token = this.getToken();
     if (!token) {
-      console.warn('[Skysync Spotify] Reprodução abortada: usuário não autenticado.');
+      console.warn('[Skysync Spotify] Reprodução abortada: usuário não autenticado ou token expirado.');
+      this._releaseTransitionLock();
+      this._handleCriticalAuthError('auth_missing', 'Token ausente ou expirado ao carregar faixa.');
       return;
     }
 
@@ -428,6 +473,16 @@ class SpotifyAdapter {
         if (reqId !== this.loadRequestId) return;
         console.warn(`[Skysync Spotify] Erro ao iniciar faixa via API (HTTP ${response.status}):`, errText);
         this._releaseTransitionLock();
+
+        // Requisito 4 (Fase 18: Limpeza de Erros e Pulos):
+        // Se o erro for de autenticação/permissão (Token rejeitado 401 ou Conta Free 403),
+        // NÃO repassa para o PlayerManager tentar outra música em loop.
+        if (response.status === 401 || response.status === 403) {
+          const reason = response.status === 401 ? 'auth_error' : 'premium_required';
+          this._handleCriticalAuthError(reason, `HTTP ${response.status}: ${errText}`);
+          return;
+        }
+
         if (this.onErrorCallback) this.onErrorCallback(`play_failed_${response.status}`, trackData);
         return;
       }
@@ -731,6 +786,135 @@ class SpotifyAdapter {
 
   isPlaying() {
     return this.isPlayingTrack;
+  }
+
+  /**
+   * Requisito 4 (Fase 18: Limpeza de Erros e Pulos):
+   * Se o erro for crítico de autenticação/permissão (Token rejeitado, expirado ou Conta Free):
+   * 1. Destrói a instância do player do SDK (player.disconnect() e null).
+   * 2. Limpa credenciais do localStorage (clearToken()).
+   * 3. Interrompe rampas e travas ativas.
+   * 4. NÃO repassa o erro para o PlayerManager sortear outra música em loop.
+   * 5. Emite um alerta visual no frontend pedindo para o usuário reconectar a conta.
+   */
+  _handleCriticalAuthError(reason, details = '') {
+    console.error(`🔒 [Skysync Spotify] Tratamento de Erro Crítico (${reason}):`, details);
+
+    // 1. Destrói a instância do player e desvincula ouvintes
+    if (this.player) {
+      try {
+        if (typeof this.player.disconnect === 'function') {
+          this.player.disconnect();
+        }
+      } catch (e) {
+        console.warn('[Skysync Spotify] Aviso ao desconectar player:', e);
+      }
+      this.player = null;
+    }
+
+    this.deviceId = null;
+    this.isReady = false;
+    this.isPlayingTrack = false;
+    this.connectPromise = null;
+    this.readyResolve = null;
+
+    // 2. Destrava transições e cancela rampa de volume
+    this._releaseTransitionLock();
+    this._cancelRamp();
+
+    // 3. Remove credenciais do localStorage
+    this.clearToken();
+
+    // 4. Notifica o PlayerManager apenas para parar a UI (isPlaying = false), SEM pular faixas
+    if (typeof this.onStateChangeCallback === 'function') {
+      this.onStateChangeCallback(false);
+    }
+
+    // 5. Emite alerta visual no frontend
+    this.showAuthErrorAlert(reason, details);
+
+    // 6. Notifica o frontend globalmente
+    window.dispatchEvent(
+      new CustomEvent('skysync:critical-auth-error', {
+        detail: { reason, details },
+      })
+    );
+  }
+
+  /**
+   * Emite alerta visual no frontend informando a expiração do token / falta de Spotify Premium.
+   */
+  showAuthErrorAlert(reason, details = '') {
+    const isPremium = reason === 'premium_required';
+    const title = isPremium ? 'Spotify Premium Necessário' : 'Sessão do Spotify Expirada';
+    const message = isPremium
+      ? 'A sua conta do Spotify não possui uma assinatura Premium ativa. O Skysync requer Spotify Premium para streaming adaptativo. Por favor, conecte uma conta com assinatura Premium.'
+      : 'Sua sessão do Spotify expirou ou o token foi revogado. Por favor, reconecte sua conta para continuar a ouvir a trilha sonora sincronizada.';
+
+    // Atualiza mensagem na Splash Screen se disponível
+    const splashNotice = document.getElementById('splash-auth-notice');
+    if (splashNotice) {
+      splashNotice.className = 'splash-auth-notice error';
+      splashNotice.textContent = message;
+      splashNotice.style.display = 'block';
+    }
+
+    // Modal de Alerta de Autenticação se presente no DOM
+    const modal = document.getElementById('modal-auth-alert');
+    const modalTitle = document.getElementById('modal-auth-title');
+    const modalDesc = document.getElementById('modal-auth-desc');
+    if (modal) {
+      if (modalTitle) modalTitle.textContent = title;
+      if (modalDesc) modalDesc.textContent = message;
+      modal.style.display = 'flex';
+    } else {
+      this._createFloatingAlert(title, message);
+    }
+  }
+
+  _createFloatingAlert(title, message) {
+    let existing = document.getElementById('skysync-auth-floating-alert');
+    if (existing) existing.remove();
+
+    const alertDiv = document.createElement('div');
+    alertDiv.id = 'skysync-auth-floating-alert';
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.style.cssText = `
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999999;
+      background: #1a2230;
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.7);
+      border-radius: 12px;
+      padding: 18px 24px;
+      max-width: 520px;
+      width: 90%;
+      color: #fca5a5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-sizing: border-box;
+    `;
+    alertDiv.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <strong style="color: #ef4444; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+          <span>🔒</span> ${title}
+        </strong>
+        <button type="button" style="background: none; border: none; color: #a0aec0; font-size: 1.2rem; cursor: pointer; padding: 0 4px;" onclick="this.closest('#skysync-auth-floating-alert').remove()">✕</button>
+      </div>
+      <div style="color: #e2e8f0; font-size: 0.9rem;">${message}</div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
+        <button type="button" style="background: #2d3748; color: #cbd5e0; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;" onclick="this.closest('#skysync-auth-floating-alert').remove()">Continuar Lendo sem Áudio</button>
+        <a href="/api/v1/auth/login" style="background: #1db954; color: #000; font-weight: 700; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">🎧 Reconectar Spotify</a>
+      </div>
+    `;
+    document.body.appendChild(alertDiv);
   }
 
   setOnStateChange(callback) {

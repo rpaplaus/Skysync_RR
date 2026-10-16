@@ -4,14 +4,28 @@ import os
 import urllib.parse
 from typing import Dict, Any, List, Optional
 import httpx
-from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, HTTPException, status, Response
+from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel
 
 from app.core import config
 from app.models.book import Book, Chapter, BookMetadata, BookSettings
 
 router = APIRouter(prefix="/api/v1", tags=["Skysync API"])
+
+# Cabeçalhos HTTP rigorosos para impedir cache do navegador (Fase 18: Cache-Busting)
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
+def apply_no_cache_headers(response: Response) -> None:
+    """Aplica cabeçalhos HTTP rigorosos para que o navegador nunca armazene em cache JSONs ou dados dinâmicos."""
+    for header_name, header_value in NO_CACHE_HEADERS.items():
+        response.headers[header_name] = header_value
+
 
 # Cache simples em memória com verificação de modificação do arquivo
 _book_cache: Optional[Book] = None
@@ -101,7 +115,7 @@ async def spotify_callback(code: Optional[str] = None, error: Optional[str] = No
     """
     Recebe o authorization code enviado pelo Spotify após aprovação do usuário,
     troca pelo Access Token via POST na API do Spotify e redireciona de volta
-    para o frontend em '/?token=XYZ'.
+    para o frontend em '/?token=XYZ&expires_in=3600'.
     """
     if error:
         return RedirectResponse(url=f"/?auth_error={urllib.parse.quote(error)}")
@@ -137,11 +151,13 @@ async def spotify_callback(code: Optional[str] = None, error: Optional[str] = No
 
         token_data = resp.json()
         access_token = token_data.get("access_token")
+        expires_in = token_data.get("expires_in", 3600)
         if not access_token:
             return RedirectResponse(url="/?auth_error=Token_invalido_recebido_do_Spotify")
 
         return RedirectResponse(
-            url=f"/?token={access_token}", status_code=status.HTTP_307_TEMPORARY_REDIRECT
+            url=f"/?token={access_token}&expires_in={expires_in}",
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
         )
 
     except Exception as e:
@@ -168,12 +184,13 @@ def spotify_auth_status():
 
 
 # =====================================================================
-# Rotas de Conteúdo do Livro e Catálogo de Faixas
+# Rotas de Conteúdo do Livro e Catálogo de Faixas (com Cache-Busting)
 # =====================================================================
 
 @router.get("/book", response_model=Book, summary="Obter Livro Completo")
-def get_full_book():
+def get_full_book(response: Response):
     """Retorna a estrutura completa do livro, incluindo todos os capítulos, parágrafos e gatilhos de áudio."""
+    apply_no_cache_headers(response)
     return get_book_data()
 
 
@@ -182,8 +199,9 @@ def get_full_book():
     response_model=BookOverviewResponse,
     summary="Sumário do Livro (TOC)",
 )
-def get_book_overview():
+def get_book_overview(response: Response):
     """Retorna os metadados do livro e a lista resumida de capítulos para exibição do índice/menu."""
+    apply_no_cache_headers(response)
     book = get_book_data()
     summaries = [
         ChapterSummary(
@@ -207,8 +225,9 @@ def get_book_overview():
 
 
 @router.get("/chapters/{chapter_id}", response_model=Chapter, summary="Obter Capítulo Específico")
-def get_chapter(chapter_id: str):
+def get_chapter(chapter_id: str, response: Response):
     """Retorna o capítulo solicitado pelo identificador (ex: 'cap-01') com todos os seus blocos e gatilhos."""
+    apply_no_cache_headers(response)
     book = get_book_data()
     for ch in book.chapters:
         if ch.id.lower() == chapter_id.lower() or str(ch.number) == chapter_id:
@@ -220,9 +239,38 @@ def get_chapter(chapter_id: str):
 
 
 @router.get("/tracks/catalog", summary="Obter Catálogo de Músicas")
-def get_tracks_catalog() -> Dict[str, Any]:
-    """Retorna o catálogo completo de músicas mapeadas com links e IDs para Spotify."""
+def get_tracks_catalog(response: Response) -> Response:
+    """Retorna o catálogo completo de músicas mapeadas com links e IDs para Spotify (sem cache)."""
+    apply_no_cache_headers(response)
     if not config.TRACKS_CATALOG_FILE.exists():
-        return {}
+        return JSONResponse(content={}, headers=NO_CACHE_HEADERS)
     with open(config.TRACKS_CATALOG_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+    return JSONResponse(content=data, headers=NO_CACHE_HEADERS)
+
+
+@router.get("/tracks_catalog.json", summary="Obter Arquivo Bruto tracks_catalog.json")
+def get_raw_tracks_catalog_file(response: Response) -> Response:
+    """Rota direta para o arquivo tracks_catalog.json com cabeçalhos anti-cache rigorosos (Fase 18)."""
+    apply_no_cache_headers(response)
+    if not config.TRACKS_CATALOG_FILE.exists():
+        return JSONResponse(content={}, headers=NO_CACHE_HEADERS)
+    with open(config.TRACKS_CATALOG_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return JSONResponse(content=data, headers=NO_CACHE_HEADERS)
+
+
+@router.get("/skysync_data.json", summary="Obter Arquivo Bruto skysync_data.json")
+def get_raw_skysync_data_file(response: Response) -> Response:
+    """Rota direta para o arquivo skysync_data.json com cabeçalhos anti-cache rigorosos (Fase 18)."""
+    apply_no_cache_headers(response)
+    if not config.PROCESSED_DATA_FILE.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Arquivo skysync_data.json não encontrado.",
+        )
+    with open(config.PROCESSED_DATA_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return JSONResponse(content=data, headers=NO_CACHE_HEADERS)
+
+

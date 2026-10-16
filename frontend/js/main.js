@@ -11,6 +11,7 @@
   const STORAGE_KEYS = {
     TOKEN: 'skysync_spotify_token',
     LEGACY_TOKEN: 'spotify_access_token',
+    EXPIRATION_TIME: 'skysync_spotify_expiration_time',
     LAST_CHAPTER: 'skysync_last_chapter_id',
     LAST_PARAGRAPH: 'skysync_last_paragraph_id',
     LAST_TRACK_ID: 'skysync_last_track_id',
@@ -32,13 +33,57 @@
   let playerManager = null;
   let bookData = null;
 
-  async function startApplication() {
-    console.log('🌌 [Skysync] Inicializando sistema Skyhaven (Fase 13: 100% Exclusivo Spotify)...');
+  /**
+   * Requisito 1 (Fase 18: 'Amnésia' de Inicialização / State Wipe):
+   * Para simular o ambiente limpo de uma aba anônima, limpa resíduos de áudio
+   * transitórios toda vez que o aplicativo for carregado (antes de inicializar o player).
+   * NÃO apaga o progresso de leitura do livro (LAST_CHAPTER, LAST_PARAGRAPH).
+   */
+  function wipeTransientAudioState() {
+    console.log("🧹 [Skysync State Wipe] Limpando estados transitórios do player ('Amnésia' de Inicialização)...");
+    const transientAudioKeys = [
+      STORAGE_KEYS.LAST_TRACK_ID,
+      'skysync_manual_pause',
+      'skysync_is_paused',
+      'skysync_audio_state',
+      'skysync_player_state',
+      'skysync_playback_state',
+      'skysync_last_position',
+      'spotify_last_track',
+      'skysync_current_track',
+      'skysync_transition_state',
+    ];
 
-    // 1. Processa parâmetros de autenticação na URL (Callback do Spotify)
+    transientAudioKeys.forEach((key) => {
+      try {
+        localStorage.removeItem(key);
+      } catch (_) {}
+    });
+  }
+
+  async function startApplication() {
+    console.log('🌌 [Skysync] Inicializando sistema Skyhaven (Fase 18: Elevação de Arquitetura e Gestão de Estado)...');
+
+    // 1. Requisito 1: 'Amnésia' de Inicialização (State Wipe)
+    // Limpa resíduos antigos de áudio do localStorage antes de inicializar o player
+    wipeTransientAudioState();
+
+    // 2. Processa parâmetros de autenticação na URL (Callback do Spotify)
     handleUrlAuthParameters();
 
-    // 2. Aguarda ou recupera os dados do livro
+    // 3. Ouvintes para expiração de token e erros críticos de autorização (Fase 18)
+    window.addEventListener('skysync:token-expired', () => {
+      console.warn('🔒 [Skysync Main] Notificação de token expirado. Atualizando estado dos botões...');
+      updateSplashState();
+    });
+
+    window.addEventListener('skysync:critical-auth-error', (e) => {
+      const { reason, details } = e.detail || {};
+      console.warn('🔒 [Skysync Main] Erro crítico de autenticação/permissão recebido:', reason, details);
+      updateSplashState();
+    });
+
+    // 4. Aguarda ou recupera os dados do livro
     if (window.SkysyncReader && window.SkysyncReader.getBook()) {
       bookData = window.SkysyncReader.getBook();
       updateSplashState();
@@ -49,7 +94,7 @@
       });
     }
 
-    // 3. Inicializa o PlayerManager (Spotify Web Playback SDK)
+    // 5. Inicializa o PlayerManager (Spotify Web Playback SDK)
     if (window.PlayerManager) {
       try {
         playerManager = new window.PlayerManager();
@@ -61,23 +106,28 @@
       }
     }
 
-    // 4. Configura eventos dos botões da Splash Screen
+    // 6. Configura eventos dos botões da Splash Screen
     setupSplashButtons();
   }
 
   /**
    * Processa parâmetros de URL vindos do OAuth (/api/v1/auth/callback):
-   * Se ?token=XYZ estiver presente: salva no localStorage e limpa a URL.
+   * Se ?token=XYZ estiver presente: salva no localStorage com timestamp exato de expiração e limpa a URL.
    */
   function handleUrlAuthParameters() {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
+    const expiresInParam = urlParams.get('expires_in');
     const authError = urlParams.get('auth_error');
 
     if (token) {
-      console.log('🔑 [Skysync Auth] Token de acesso do Spotify recebido via callback. Salvando no LocalStorage...');
+      console.log('🔑 [Skysync Auth] Token de acesso do Spotify recebido via callback. Salvando com expiração exata...');
+      const expiresInSec = parseInt(expiresInParam || '3600', 10);
+      const expirationTime = Date.now() + expiresInSec * 1000;
+
       localStorage.setItem(STORAGE_KEYS.TOKEN, token);
       localStorage.setItem(STORAGE_KEYS.LEGACY_TOKEN, token);
+      localStorage.setItem(STORAGE_KEYS.EXPIRATION_TIME, expirationTime.toString());
 
       // Limpa os parâmetros sensíveis da barra de endereços sem recarregar
       const cleanUrl = window.location.pathname;
@@ -101,14 +151,41 @@
   }
 
   /**
-   * Obtém o token de acesso salvo.
+   * Obtém o token de acesso salvo, com validação rigorosa de expiração (Fase 18: Anti-Zombie Token).
    */
   function getSavedToken() {
-    return (
+    const token =
       localStorage.getItem(STORAGE_KEYS.TOKEN) ||
       localStorage.getItem(STORAGE_KEYS.LEGACY_TOKEN) ||
-      ''
-    );
+      null;
+
+    if (!token) return null;
+
+    const expirationStr = localStorage.getItem(STORAGE_KEYS.EXPIRATION_TIME);
+    if (expirationStr) {
+      const expirationTime = parseInt(expirationStr, 10);
+      if (isNaN(expirationTime) || Date.now() > expirationTime) {
+        console.warn('🔒 [Skysync Auth] Token expirado detectado no LocalStorage. Limpando credenciais...');
+        clearStoredAuth();
+        return null;
+      }
+    } else {
+      // Token antigo sem timestamp de expiração
+      console.warn('🔒 [Skysync Auth] Token antigo sem timestamp de expiração detectado. Limpando credenciais...');
+      clearStoredAuth();
+      return null;
+    }
+
+    return token;
+  }
+
+  /**
+   * Remove tokens e timestamps do localStorage.
+   */
+  function clearStoredAuth() {
+    localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.LEGACY_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.EXPIRATION_TIME);
   }
 
   /**
@@ -209,10 +286,32 @@
       });
     }
 
-    // Tecla ESC fecha o modal de reset
+    // Modal de Alerta de Autenticação / Sessão Expirada (Fase 18)
+    const modalAuthAlert = document.getElementById('modal-auth-alert');
+    const btnModalAuthDismiss = document.getElementById('btn-modal-auth-dismiss');
+    if (btnModalAuthDismiss) {
+      btnModalAuthDismiss.addEventListener('click', () => {
+        if (modalAuthAlert) modalAuthAlert.style.display = 'none';
+      });
+    }
+
+    if (modalAuthAlert) {
+      modalAuthAlert.addEventListener('click', (e) => {
+        if (e.target === modalAuthAlert) {
+          modalAuthAlert.style.display = 'none';
+        }
+      });
+    }
+
+    // Tecla ESC fecha modais abertos
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && modalResetConfirm && modalResetConfirm.style.display !== 'none') {
-        hideResetConfirmationModal();
+      if (e.key === 'Escape') {
+        if (modalResetConfirm && modalResetConfirm.style.display !== 'none') {
+          hideResetConfirmationModal();
+        }
+        if (modalAuthAlert && modalAuthAlert.style.display !== 'none') {
+          modalAuthAlert.style.display = 'none';
+        }
       }
     });
 

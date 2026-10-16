@@ -1,8 +1,8 @@
 import sys
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 # Garante que o diretório backend esteja no path de execução
@@ -16,6 +16,7 @@ from app.core.config import (
     APP_DESCRIPTION,
     APP_VERSION,
     FRONTEND_DIR,
+    PROJECT_ROOT,
 )
 from app.api.routes import router as api_router
 
@@ -51,97 +52,70 @@ def health_check():
     }
 
 
-# Se o diretório do frontend contiver index.html, monta arquivos estáticos
-frontend_index = FRONTEND_DIR / "index.html"
-if FRONTEND_DIR.exists() and frontend_index.exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
-    
-    css_dir = FRONTEND_DIR / "css"
+# =====================================================================
+# Rotas de Arquivos Estáticos e Frontend (Fase 18 / Restauração)
+# =====================================================================
+
+def resolve_frontend_dir() -> Path:
+    """Busca o diretório frontend em múltiplos caminhos possíveis para máxima resiliência."""
+    candidates = [
+        FRONTEND_DIR,
+        PROJECT_ROOT / "frontend",
+        BACKEND_DIR.parent / "frontend",
+        CURRENT_FILE.parent.parent.parent / "frontend",
+        Path.cwd() / "frontend",
+        Path.cwd().parent / "frontend",
+    ]
+    for c in candidates:
+        if c.exists() and (c / "index.html").exists():
+            return c.resolve()
+    return FRONTEND_DIR.resolve()
+
+
+resolved_frontend_dir = resolve_frontend_dir()
+frontend_index = resolved_frontend_dir / "index.html"
+
+# Rotas de arquivos JSON da raiz com cabeçalhos anti-cache da Fase 18
+@app.get("/tracks_catalog.json", include_in_schema=False)
+def serve_root_tracks_catalog_json(response: Response):
+    from app.api.routes import get_raw_tracks_catalog_file
+    return get_raw_tracks_catalog_file(response)
+
+
+@app.get("/skysync_data.json", include_in_schema=False)
+def serve_root_skysync_data_json(response: Response):
+    from app.api.routes import get_raw_skysync_data_file
+    return get_raw_skysync_data_file(response)
+
+
+# Rota explícita da raiz (/) retornando index.html
+@app.get("/", include_in_schema=False)
+def serve_frontend_root():
+    if frontend_index.exists():
+        return FileResponse(str(frontend_index))
+    raise HTTPException(status_code=404, detail="index.html do frontend não encontrado")
+
+
+# Montagens de diretórios estáticos
+if resolved_frontend_dir.exists():
+    # 1. Montagem em /static para compatibilidade com links /static/css/...
+    app.mount("/static", StaticFiles(directory=str(resolved_frontend_dir)), name="static")
+
+    # 2. Montagens dedicadas /css e /js
+    css_dir = resolved_frontend_dir / "css"
     if css_dir.exists():
         app.mount("/css", StaticFiles(directory=str(css_dir)), name="css")
-        
-    js_dir = FRONTEND_DIR / "js"
+
+    js_dir = resolved_frontend_dir / "js"
     if js_dir.exists():
         app.mount("/js", StaticFiles(directory=str(js_dir)), name="js")
 
-    @app.get("/", include_in_schema=False)
-    def serve_frontend_root():
-        from fastapi.responses import FileResponse
-        return FileResponse(str(frontend_index))
-else:
-    # Landing page provisória elegante para guiar o desenvolvedor/Tech Lead
-    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-    def landing_page():
-        return """
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-        <head>
-            <meta charset="UTF-8">
-            <title>Skysync API - Skyhaven</title>
-            <style>
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                    background: #0f141c;
-                    color: #e2e8f0;
-                    margin: 0;
-                    padding: 40px 20px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                }
-                .card {
-                    background: #1a2230;
-                    border: 1px solid #2d3748;
-                    border-radius: 12px;
-                    padding: 32px;
-                    max-width: 650px;
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-                }
-                h1 { color: #63b3ed; margin-top: 0; }
-                .badge {
-                    display: inline-block;
-                    background: #2b6cb0;
-                    color: white;
-                    padding: 4px 10px;
-                    border-radius: 999px;
-                    font-size: 0.8rem;
-                    font-weight: 600;
-                    margin-bottom: 16px;
-                }
-                a { color: #63b3ed; text-decoration: none; font-weight: 500; }
-                a:hover { text-decoration: underline; }
-                ul { line-height: 1.8; }
-                code {
-                    background: #111722;
-                    padding: 3px 6px;
-                    border-radius: 4px;
-                    color: #feb2b2;
-                    font-size: 0.9em;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <span class="badge">Backend Ativo</span>
-                <h1>🌌 Skysync API (Skyhaven)</h1>
-                <p>O servidor backend do <strong>Skysync</strong> está em execução e pronto para servir o leitor.</p>
-                <hr style="border: 0; border-top: 1px solid #2d3748; margin: 20px 0;">
-                <h3>Recursos Disponíveis:</h3>
-                <ul>
-                    <li><a href="/docs" target="_blank">Documentação Interativa Swagger (/docs)</a></li>
-                    <li><a href="/redoc" target="_blank">Documentação ReDoc (/redoc)</a></li>
-                    <li><a href="/api/v1/book" target="_blank">JSON Completo do Livro (<code>/api/v1/book</code>)</a></li>
-                    <li><a href="/api/v1/book/overview" target="_blank">Sumário e Capítulos (<code>/api/v1/book/overview</code>)</a></li>
-                    <li><a href="/api/v1/tracks/catalog" target="_blank">Catálogo de Músicas (<code>/api/v1/tracks/catalog</code>)</a></li>
-                </ul>
-            </div>
-        </body>
-        </html>
-        """
+    # 3. Montagem abrangente na raiz com html=True garantindo resolução total de assets
+    app.mount("/", StaticFiles(directory=str(resolved_frontend_dir), html=True), name="frontend")
 
 
 if __name__ == "__main__":
     import uvicorn
     import os
-    server_port = int(os.getenv("PORT", 8080))
-    uvicorn.run("app.main:app", host="127.0.0.1", port=server_port, reload=True)
+    server_port = int(os.getenv("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=server_port, reload=True)

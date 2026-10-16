@@ -234,10 +234,25 @@
     </div>
   </div>
 
-  <!-- Scripts do Skysync (Fase 13: 100% Exclusivo Spotify) -->
-  <script src="/js/reader.js" defer></script>
-  <script src="/js/player/spotify-adapter.js" defer></script>
-  <script src="/js/player/player-manager.js" defer></script>
-  <script src="/js/main.js" defer></script>
+  <!-- Modal de Alerta de Autenticação / Sessão Expirada (Fase 18) -->
+  <div class="skysync-modal-backdrop" id="modal-auth-alert" style="display: none;">
+    <div class="skysync-modal-card">
+      <div class="skysync-modal-icon">🔒</div>
+      <h3 class="skysync-modal-title" id="modal-auth-title">Sessão Spotify Expirada</h3>
+      <p class="skysync-modal-desc" id="modal-auth-desc">
+        Sua sessão do Spotify expirou ou necessita de reconexão. Conecte novamente sua conta Spotify Premium para continuar a sincronização musical.
+      </p>
+      <div class="skysync-modal-actions">
+        <button type="button" class="skysync-modal-btn skysync-modal-btn-cancel" id="btn-modal-auth-dismiss">Continuar Lendo sem Áudio</button>
+        <a href="/api/v1/auth/login" class="skysync-modal-btn skysync-modal-btn-confirm" id="btn-modal-auth-reconnect" style="text-decoration: none;">🎧 Reconectar Spotify</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts do Skysync (Fase 18: Cache-Busting e Gestão Rigorosa de Estado) -->
+  <script src="/js/reader.js?v=fase18" defer></script>
+  <script src="/js/player/spotify-adapter.js?v=fase18" defer></script>
+  <script src="/js/player/player-manager.js?v=fase18" defer></script>
+  <script src="/js/main.js?v=fase18" defer></script>
 </body>
 </html>

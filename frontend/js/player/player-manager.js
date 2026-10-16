@@ -392,6 +392,30 @@ class PlayerManager {
 
     this.cancelPendingTrigger();
 
+    // Requisito 4 (Fase 18: Limpeza de Erros e Pulos):
+    // Se for erro crítico de autenticação/permissão/token/premium, NUNCA tenta outra música em loop!
+    const errStr = String(err).toLowerCase();
+    if (
+      err === 'auth_error' ||
+      err === 'premium_required' ||
+      err === 'auth_missing' ||
+      err === 'play_failed_401' ||
+      err === 'play_failed_403' ||
+      errStr.includes('auth') ||
+      errStr.includes('premium') ||
+      errStr.includes('token')
+    ) {
+      console.warn(`🔒 [Skysync PlayerManager] Erro crítico de permissão/auth ('${err}'). Bloqueando repetição em loop.`);
+      if (this.errorCooldownTimer) {
+        clearTimeout(this.errorCooldownTimer);
+        this.errorCooldownTimer = null;
+      }
+      this.consecutiveErrorCount = 0;
+      this.isManuallyPaused = true;
+      this._updateUI(false);
+      return;
+    }
+
     if (failedTrack && failedTrack.id && failedTrack.role === 'ambient') {
       this.lastAmbientTrackId = failedTrack.id;
       this.ambientTracks = this.ambientTracks.filter((t) => t.id !== failedTrack.id);
