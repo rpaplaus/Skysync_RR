@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Skysync — Leitura Imersiva: Skyhaven (Spotify Edition)</title>
   <meta name="description" content="Skysync: Experiência de leitura imersiva com trilha sonora adaptativa oficial Spotify sincronizada por parágrafo para a obra Skyhaven.">
   <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -13,8 +13,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Estilos do Leitor -->
-  <link rel="stylesheet" href="/static/css/reader.css">
-  <link rel="stylesheet" href="css/reader.css">
+  <link rel="stylesheet" href="/static/css/reader.css?v=fase22">
+  <link rel="stylesheet" href="css/reader.css?v=fase22">
 
   <!-- Spotify Web Playback SDK -->
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
@@ -85,11 +85,13 @@
   <!-- Header / HUD de Navegação Superior -->
   <header class="app-header">
     <div class="brand-section">
-      <a href="/" class="brand-logo" id="brand-logo" title="Skysync">
+      <a href="/" class="brand-logo" id="brand-logo" title="Skyhaven — Powered by Skysync">
         <span class="brand-logo-icon">🌌</span>
-        <span>SKYSYNC</span>
+        <div class="brand-titles">
+          <span class="brand-title-primary">Skyhaven</span>
+          <span class="brand-title-secondary">powered by <span class="brand-name">Skysync</span></span>
+        </div>
       </a>
-      <span class="book-tag">Skyhaven</span>
     </div>
 
     <div class="header-chapter-title" id="header-chapter-title">
@@ -210,12 +212,6 @@
           title="Volume da Trilha"
         >
       </div>
-
-      <!-- Indicador Spotify Premium Oficial (Fase 13) -->
-      <div class="player-spotify-indicator" title="Skysync: 100% Exclusivo Spotify Web Playback SDK">
-        <span class="spotify-indicator-dot"></span>
-        <span class="spotify-indicator-text">Spotify SDK</span>
-      </div>
     </div>
   </footer>
 
@@ -249,10 +245,10 @@
     </div>
   </div>
 
-  <!-- Scripts do Skysync (Fase 18: Cache-Busting e Gestão Rigorosa de Estado) -->
-  <script src="/js/reader.js?v=fase18" defer></script>
-  <script src="/js/player/spotify-adapter.js?v=fase18" defer></script>
-  <script src="/js/player/player-manager.js?v=fase18" defer></script>
-  <script src="/js/main.js?v=fase18" defer></script>
+  <!-- Scripts do Skysync (Fase 22: Trava de Viewport e Refatoração Mobile) -->
+  <script src="/js/reader.js?v=fase22" defer></script>
+  <script src="/js/player/spotify-adapter.js?v=fase22" defer></script>
+  <script src="/js/player/player-manager.js?v=fase22" defer></script>
+  <script src="/js/main.js?v=fase22" defer></script>
 </body>
 </html>

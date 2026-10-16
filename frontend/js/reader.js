@@ -32,6 +32,7 @@
   const elements = {
     readerContainer: document.getElementById('reader-container'),
     readerContent: document.getElementById('reader-content'),
+    bottomHud: document.getElementById('reader-bottom-hud'),
     progressBar: document.getElementById('reading-progress-fill'),
     headerChapterTitle: document.getElementById('header-chapter-title'),
     hudReadingInfo: document.getElementById('hud-reading-info'),
@@ -102,6 +103,38 @@
     return measuringStageEl;
   }
 
+  /**
+   * Extrai o lineHeight computado real (em pixels) para o cálculo anti-fatiamento de linha (Fase 22).
+   * Garante que availableHeight seja sempre um múltiplo exato de lineHeight.
+   */
+  function getComputedLineHeight() {
+    // 1. Tenta extrair diretamente de um elemento de leitura presente no DOM
+    const existingP = document.querySelector('.reading-paragraph-text') || document.querySelector('.reading-block');
+    if (existingP) {
+      const style = window.getComputedStyle(existingP);
+      const parsedLh = parseFloat(style.lineHeight);
+      if (!isNaN(parsedLh) && parsedLh > 0) return parsedLh;
+      const parsedFs = parseFloat(style.fontSize);
+      if (!isNaN(parsedFs) && parsedFs > 0) return parsedFs * 1.85;
+    }
+
+    // 2. Extrai usando elemento de teste no estágio invisível de medição
+    const stage = getMeasuringStage(300);
+    const tempDiv = document.createElement('div');
+    tempDiv.className = 'reading-block';
+    tempDiv.innerHTML = '<p class="reading-paragraph-text">&nbsp;</p>';
+    stage.appendChild(tempDiv);
+    const p = tempDiv.querySelector('.reading-paragraph-text');
+    const computed = window.getComputedStyle(p);
+    let lh = parseFloat(computed.lineHeight);
+    if (isNaN(lh) || lh <= 0) {
+      const rootFs = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+      lh = rootFs * (state.fontSizeRem || 1.05) * 1.85;
+    }
+    stage.removeChild(tempDiv);
+    return Math.max(16, lh);
+  }
+
   // --- MOTOR DE PAGINAÇÃO DINÂMICA (ESTILO KINDLE) ---
   /**
    * Divide os blocos de um capítulo em páginas virtuais com base na altura útil do leitor.
@@ -114,19 +147,48 @@
 
     // Calcula dimensões do viewport do leitor
     const container = elements.readerContainer;
-    const containerHeight = container && container.clientHeight > 100
-      ? container.clientHeight
-      : (window.innerHeight - 124);
+
+    // Altura dinâmica real da janela (100dvh para Mobile Safari / Brave)
+    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
+    // Altura real do cabeçalho superior fixo (fallback 64px)
+    const appHeader = document.querySelector('.app-header');
+    const appHeaderHeight = appHeader ? (appHeader.offsetHeight || 64) : 64;
+
+    // Altura real do player inferior fixo (subtraída para garantir que o texto termine antes do rodapé)
+    const bottomHud = elements.bottomHud || document.getElementById('reader-bottom-hud');
+    const bottomHudHeight = bottomHud && bottomHud.offsetHeight > 30
+      ? bottomHud.offsetHeight
+      : (window.innerWidth <= 768 ? 115 : 60);
+
+    // Padding de segurança configurado no contêiner ou medido no DOM
+    let containerPadBottom = 120;
+    if (container) {
+      const cStyle = window.getComputedStyle(container);
+      const parsedPadBottom = parseFloat(cStyle.paddingBottom);
+      if (!isNaN(parsedPadBottom) && parsedPadBottom > 0) {
+        containerPadBottom = parsedPadBottom;
+      }
+    }
+
+    // O espaço reservado para a base é o maior entre a altura real do player fixo e o padding de segurança
+    const effectiveBottomGap = Math.max(bottomHudHeight, containerPadBottom);
+
+    // Largura útil da coluna de leitura (limitada a 740px)
     const containerWidth = container && container.clientWidth > 100
       ? container.clientWidth
       : window.innerWidth;
+    const horizontalMargin = window.innerWidth <= 768 ? 32 : 64;
+    const readingWidth = Math.min(Math.max(280, containerWidth - horizontalMargin), 740);
 
-    // Largura útil da coluna de leitura (limitada a 740px)
-    const readingWidth = Math.min(Math.max(280, containerWidth - 64), 740);
+    // Altura útil estritamente para os blocos de texto (viewport menos chrome superior, inferior e da página)
+    const internalPageChrome = window.innerWidth <= 768 ? 68 : 80;
+    const rawHeight = Math.max(220, viewportHeight - appHeaderHeight - effectiveBottomGap - internalPageChrome);
 
-    // Altura útil para o texto (viewport menos padding do contêiner e o rodapé 'Página X de Y')
-    // padding vertical (~40px) + rodapé (~38px) = ~78px
-    const availableHeight = Math.max(260, containerHeight - 85);
+    // Fase 22: Recálculo Dinâmico de Linha (Anti-Fatiamento)
+    // Encaixe exato: Math.floor(rawHeight / lineHeight) * lineHeight
+    const computedLineHeight = getComputedLineHeight();
+    const availableHeight = Math.max(220, Math.floor(rawHeight / computedLineHeight) * computedLineHeight);
 
     // Configura o estágio de medição invisível
     const stage = getMeasuringStage(readingWidth);
@@ -150,28 +212,18 @@
     const headerDiv = document.createElement('div');
     headerDiv.innerHTML = headerHtml;
     stage.appendChild(headerDiv);
-    const headerHeight = headerDiv.offsetHeight + 18;
+    const chapterHeaderHeight = headerDiv.offsetHeight + 18;
     stage.removeChild(headerDiv);
 
     // 2. Insere todos os blocos no estágio de uma só vez para medição em batch
+    // (Fase 19: 100% fiéis ao manuscrito original, sem injeção de badges visuais)
     const fragment = document.createDocumentFragment();
     const blockDivs = [];
 
     chapter.content_blocks.forEach((block) => {
-      let badgeHtml = '';
-      if (block.audio_trigger && block.audio_trigger.track) {
-        const track = block.audio_trigger.track;
-        badgeHtml = `
-          <div class="music-trigger-badge">
-            <span class="music-badge-pulse"></span>
-            <span>♪ Trilha: ${escapeHtml(track.title)} — ${escapeHtml(track.artist)}</span>
-          </div>
-        `;
-      }
-
       const div = document.createElement('div');
       div.className = 'reading-block';
-      div.innerHTML = `${badgeHtml}<p class="reading-paragraph-text">${escapeHtml(block.text)}</p>`;
+      div.innerHTML = `<p class="reading-paragraph-text">${escapeHtml(block.text)}</p>`;
       fragment.appendChild(div);
       blockDivs.push(div);
     });
@@ -192,7 +244,7 @@
       const block = chapter.content_blocks[i];
       const bHeight = blockHeights[i];
       const isFirstPage = pages.length === 0;
-      const initialOffset = isFirstPage ? headerHeight : 0;
+      const initialOffset = isFirstPage ? chapterHeaderHeight : 0;
 
       // Se adicionar o bloco ultrapassar a altura máxima da página:
       if (currentPage.length > 0 && currentHeight + bHeight > availableHeight) {
@@ -244,36 +296,26 @@
            </header>`;
     }
 
-    // 2. Blocos de conteúdo da página atual
+    // 2. Blocos de conteúdo da página atual (Fase 19: 100% fiéis ao manuscrito original, sem badges visuais de gatilho)
     let blocksHtml = '';
     pageBlocks.forEach((block) => {
-      let badgeHtml = '';
-      if (block.audio_trigger && block.audio_trigger.track) {
-        const track = block.audio_trigger.track;
-        badgeHtml = `
-          <div 
-            class="music-trigger-badge" 
-            title="Clique para reproduzir esta trilha: ${escapeHtml(track.title)}" 
-            data-track-id="${track.id}"
-            data-block-id="${block.id}"
-          >
-            <span class="music-badge-pulse"></span>
-            <span>♪ Trilha: ${escapeHtml(track.title)} — ${escapeHtml(track.artist)}</span>
-          </div>
-        `;
-      }
-
       blocksHtml += `
         <div class="reading-block" id="${block.id}" data-chapter-id="${chapter.id}" data-order="${block.order}">
-          ${badgeHtml}
           <p class="reading-paragraph-text">${escapeHtml(block.text)}</p>
         </div>
       `;
     });
 
-    // 3. Monta o Viewport da página estilo Kindle
+    // 3. Monta o Viewport da página estilo Kindle (com animação transform: translateX)
+    const turnClass = state.pageTurnDirection === 'next'
+      ? 'turn-next'
+      : state.pageTurnDirection === 'prev'
+        ? 'turn-prev'
+        : '';
+    state.pageTurnDirection = null;
+
     const pageHtml = `
-      <div class="reader-page-viewport" id="reader-page-viewport">
+      <div class="reader-page-viewport ${turnClass}" id="reader-page-viewport">
         <div class="reader-page-body">
           ${headerHtml}
           ${blocksHtml}
@@ -285,18 +327,6 @@
     `;
 
     elements.readerContent.innerHTML = pageHtml;
-
-    // Disparo manual via clique nos badges musicais
-    elements.readerContent.querySelectorAll('.music-trigger-badge').forEach((badge) => {
-      badge.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const blockId = badge.getAttribute('data-block-id');
-        const b = pageBlocks.find((item) => item.id === blockId);
-        if (b && b.audio_trigger) {
-          dispatchAudioTrigger(b, 0);
-        }
-      });
-    });
 
     // 4. Atualiza os dados no HUD Superior e Inferior
     updateHUD(chapter, state.currentPageIndex + 1, totalPages);
@@ -475,9 +505,11 @@
   // --- NAVEGAÇÃO DE PÁGINAS ---
   function goToNextPage() {
     if (state.currentPageIndex < state.pages.length - 1) {
+      state.pageTurnDirection = 'next';
       state.currentPageIndex++;
       renderCurrentPage();
     } else if (state.currentChapterIndex < state.book.chapters.length - 1) {
+      state.pageTurnDirection = 'next';
       // Avança para a Página 1 do próximo capítulo
       openChapterByIndex(state.currentChapterIndex + 1, 0);
     }
@@ -485,9 +517,11 @@
 
   function goToPreviousPage() {
     if (state.currentPageIndex > 0) {
+      state.pageTurnDirection = 'prev';
       state.currentPageIndex--;
       renderCurrentPage();
     } else if (state.currentChapterIndex > 0) {
+      state.pageTurnDirection = 'prev';
       // Retorna para a última página do capítulo anterior
       openChapterByIndex(state.currentChapterIndex - 1, 'last');
     }
@@ -777,16 +811,41 @@
       { passive: true }
     );
 
-    // Redimensionamento da Janela (Resize - Requisito 1)
+    // Redimensionamento da Janela (Resize / VisualViewport / ResizeObserver - Fase 22)
     let resizeTimer = null;
-    window.addEventListener('resize', () => {
+    function handleWindowResize(debounceMs = 100) {
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         if (!state.isLoaded || !state.book) return;
         const currentBlockId = localStorage.getItem(STORAGE_KEYS.LAST_PARAGRAPH);
         repaginateAndRender(currentBlockId);
-      }, 150);
-    });
+      }, debounceMs);
+    }
+
+    window.addEventListener('resize', () => handleWindowResize(100));
+    window.addEventListener('orientationchange', () => handleWindowResize(100));
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => handleWindowResize(60));
+    }
+
+    // Fase 22: ResizeObserver no contêiner principal para reagir a alterações na barra do navegador (iOS/Safari)
+    const containerTarget = elements.readerContainer || document.getElementById('reader-container');
+    if (window.ResizeObserver && containerTarget) {
+      let prevWidth = 0;
+      let prevHeight = 0;
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          // Ignora micro-flutuações subpixel (< 2px) para prevenir loops
+          if (Math.abs(width - prevWidth) >= 2 || Math.abs(height - prevHeight) >= 2) {
+            prevWidth = width;
+            prevHeight = height;
+            handleWindowResize(60);
+          }
+        }
+      });
+      ro.observe(containerTarget);
+    }
 
     // Drawer / Sumário
     if (elements.btnToggleDrawer) {

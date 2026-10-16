@@ -91,6 +91,10 @@ body.theme-light {
 html {
   scroll-behavior: smooth;
   font-size: 16px;
+  width: 100vw;
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: relative;
 }
 
 body {
@@ -99,9 +103,12 @@ body {
   font-family: var(--font-sans);
   line-height: 1.5;
   min-height: 100vh;
-  transition: background-color var(--transition-smooth), color var(--transition-smooth);
+  min-height: 100dvh;
+  width: 100vw;
+  max-width: 100vw;
   overflow-x: hidden;
   position: relative;
+  transition: background-color var(--transition-smooth), color var(--transition-smooth);
 }
 
 /* Barra de progresso de leitura fixa no topo */
@@ -123,7 +130,7 @@ body {
   transition: width 0.15s ease-out;
 }
 
-/* --- CABEÇALHO SUPERIOR (HUD) --- */
+/* --- CABEÇALHO SUPERIOR (HUD - FASE 19: REBRANDING HIERARQUIA VISUAL) --- */
 .app-header {
   position: sticky;
   top: 0;
@@ -148,31 +155,61 @@ body {
 }
 
 .brand-logo {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--accent-primary);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   text-decoration: none;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.brand-logo:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
 .brand-logo-icon {
-  font-size: 1.4rem;
-  filter: drop-shadow(0 0 8px var(--accent-glow));
+  font-size: 1.55rem;
+  filter: drop-shadow(0 0 10px var(--accent-glow));
+  flex-shrink: 0;
+}
+
+.brand-titles {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.1;
+}
+
+/* Skyhaven: Texto Principal de Maior Destaque */
+.brand-title-primary {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  text-shadow: 0 0 14px var(--accent-glow);
+}
+
+/* Skysync: Papel Secundário ("powered by Skysync") */
+.brand-title-secondary {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+.brand-title-secondary .brand-name {
+  color: var(--music-accent);
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .book-tag {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  background: var(--bg-surface-elevated);
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
+  display: none;
 }
 
 .header-chapter-title {
@@ -312,6 +349,7 @@ body {
   width: 360px;
   max-width: 90vw;
   height: 100vh;
+  height: 100dvh;
   background: var(--bg-surface);
   border-left: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-floating);
@@ -393,29 +431,41 @@ body {
   gap: 12px;
 }
 
-/* --- ÁREA PRINCIPAL DO LEITOR (PAGINAÇÃO ESTILO KINDLE - FASE 7) --- */
+/* --- ÁREA PRINCIPAL DO LEITOR (PAGINAÇÃO ESTILO KINDLE - FASE 22: TRAVA DE VIEWPORT E ANTI-DESLIZAMENTO) --- */
 body:not(.has-splash) {
   height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  max-width: 100vw;
   overflow: hidden;
+  overflow-x: hidden;
 }
 
+#reader-container,
 .reader-container {
   position: relative;
-  width: 100%;
+  width: 100vw;
   max-width: 100vw;
-  height: calc(100vh - 64px - 60px); /* 100vh menos Header (64px) e HUD Inferior (60px) */
+  height: calc(100vh - 64px);
+  height: calc(100dvh - 64px);
   margin: 0 auto;
-  padding: 0;
+  box-sizing: border-box;
+  padding: 0 0 120px 0; /* Padding de segurança: garante que a última linha de texto termine ANTES do player fixo */
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   overflow: hidden;
+  overflow-x: hidden;
   user-select: text;
+  touch-action: pan-y pinch-zoom;
 }
 
 #reader-content {
   width: 100%;
   height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -428,7 +478,7 @@ body:not(.has-splash) {
 .page-click-zone {
   position: fixed;
   top: 64px;
-  bottom: 60px;
+  bottom: 110px;
   width: clamp(50px, 16vw, 190px);
   display: flex;
   align-items: center;
@@ -489,10 +539,10 @@ body:not(.has-splash) {
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
-/* Viewport da Página Atual */
+/* Viewport da Página Atual (Fase 22: Encaixe em 100vw e paginação com transform: translateX) */
 .reader-page-viewport {
   width: 100%;
-  max-width: var(--reader-max-width);
+  max-width: min(var(--reader-max-width), 100vw);
   height: 100%;
   max-height: 100%;
   margin: 0 auto;
@@ -503,7 +553,17 @@ body:not(.has-splash) {
   box-sizing: border-box;
   position: relative;
   z-index: 10;
+  overflow-x: hidden;
+  column-width: auto;
   animation: kindlePageIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reader-page-viewport.turn-next {
+  animation: pageSlideNext 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reader-page-viewport.turn-prev {
+  animation: pageSlidePrev 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes kindlePageIn {
@@ -514,6 +574,28 @@ body:not(.has-splash) {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes pageSlideNext {
+  from {
+    opacity: 0.25;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pageSlidePrev {
+  from {
+    opacity: 0.25;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -619,29 +701,9 @@ body:not(.has-splash) {
   margin: 0;
 }
 
-/* Badge de Gatilho Musical associado ao parágrafo */
+/* Badge de Gatilho Musical (Fase 19: Oculto para 100% fidelidade ao manuscrito original) */
 .music-trigger-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-sans);
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--music-accent);
-  background: var(--music-glow);
-  border: 1px solid rgba(52, 211, 153, 0.3);
-  padding: 4px 12px;
-  border-radius: 999px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  user-select: none;
-  transition: all var(--transition-fast);
-}
-
-.music-trigger-badge:hover {
-  transform: translateY(-1px);
-  border-color: var(--music-accent);
-  box-shadow: 0 0 10px var(--music-glow);
+  display: none !important;
 }
 
 .music-badge-pulse {
@@ -912,7 +974,7 @@ body:not(.has-splash) {
   overflow: hidden;
 }
 
-/* Responsividade */
+/* Responsividade (Fase 19: Safari/iOS & Brave Mobile Optimization) */
 @media (max-width: 768px) {
   .app-header {
     padding: 0 16px;
@@ -920,17 +982,50 @@ body:not(.has-splash) {
   .header-chapter-title {
     display: none;
   }
+  .brand-logo-icon {
+    font-size: 1.35rem;
+  }
+  .brand-title-primary {
+    font-size: 1.15rem;
+    letter-spacing: 0.1em;
+  }
+  .brand-title-secondary {
+    font-size: 0.62rem;
+  }
+  #reader-container,
+  .reader-container {
+    width: 100vw;
+    max-width: 100vw;
+    overflow-x: hidden;
+    height: calc(100vh - 64px);
+    height: calc(100dvh - 64px);
+    padding-bottom: 120px; /* Padding de segurança: garante que a última linha termine ANTES do player */
+    padding-bottom: max(120px, calc(100px + env(safe-area-inset-bottom, 0px)));
+  }
+  .reader-page-viewport {
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    column-width: auto;
+    padding: 16px 20px 10px;
+  }
+  .page-click-zone {
+    bottom: 120px;
+  }
   .book-hero-title {
     font-size: 2.2rem;
   }
   .reading-block {
-    padding: 8px 10px;
+    padding: 6px 8px;
     font-size: 1.15rem;
+    margin-bottom: 1rem;
   }
   .reader-bottom-hud {
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     padding: 10px 16px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
   }
   .player-hud-dock {
     width: 100%;
@@ -938,7 +1033,7 @@ body:not(.has-splash) {
     gap: 8px;
   }
   .player-track-meta {
-    max-width: 130px;
+    max-width: 180px;
   }
   .player-volume-control {
     display: none; /* Oculta slider no mobile para economizar espaço */
@@ -1510,35 +1605,9 @@ body:not(.has-splash) {
   color: #86efac;
 }
 
-/* Indicador Spotify no HUD Inferior */
+/* Indicador Spotify no HUD Inferior (Fase 19: Oculto para máxima imersão) */
 .player-spotify-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(29, 185, 84, 0.1);
-  border: 1px solid rgba(29, 185, 84, 0.3);
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-family: var(--font-sans);
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: #1ed760;
-  letter-spacing: 0.04em;
-  user-select: none;
-}
-
-.spotify-indicator-dot {
-  width: 7px;
-  height: 7px;
-  background-color: #1ed760;
-  border-radius: 50%;
-  box-shadow: 0 0 8px #1ed760;
-  animation: pulseDot 2s infinite ease-in-out;
-}
-
-@keyframes pulseDot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
+  display: none !important;
 }
 
 

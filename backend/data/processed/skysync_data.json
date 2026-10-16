@@ -27,7 +27,7 @@
           "type": "paragraph",
           "order": 1,
           "page_hint": 1,
-          "text": "Nota sobre a Trilha Sonora de Skyhaven A experiência de leitura desta novela só fica completa com a playlist criada especialmente para ela.",
+          "text": "Nota sobre a Trilha Sonora e a Experiência Skysync",
           "audio_trigger": null
         },
         {
@@ -35,7 +35,7 @@
           "type": "paragraph",
           "order": 2,
           "page_hint": 1,
-          "text": "Clique AQUI para ouvir no Spotify e mergulhar na história.",
+          "text": "A verdadeira imersão em Skyhaven não acontece apenas através das palavras, mas do som que pulsa em suas entrelinhas. O ozônio, o neon e a velocidade deste mundo futurista exigem uma atmosfera própria.",
           "audio_trigger": null
         },
         {
@@ -43,7 +43,7 @@
           "type": "paragraph",
           "order": 3,
           "page_hint": 1,
-          "text": "Para uma imersão completa, inicie a trilha sonora alguns minutos antes de iniciar o primeiro capítulo. Deixe que o som prepare o seu está esperando por você.",
+          "text": "Para que sua viagem seja absoluta, esta obra é impulsionada pelo Skysync. Acomode-se, coloque seus fones de ouvido e deixe que o sistema assuma o controle.",
           "audio_trigger": null
         },
         {
@@ -51,7 +51,7 @@
           "type": "paragraph",
           "order": 4,
           "page_hint": 1,
-          "text": "Nota Editorial As canções mencionadas nesta obra e a playlist que a acompanha são partes integrantes da experiência narrativa de Skyhaven. Elas funcionam como âncoras temporais para os personagens e ajudam a definir a atmosfera futurística.",
+          "text": "Deixe o som preparar o seu espírito para o salto. Skyhaven está esperando por você.",
           "audio_trigger": null
         },
         {
@@ -59,7 +59,7 @@
           "type": "paragraph",
           "order": 5,
           "page_hint": 1,
-          "text": "Todas as músicas citadas — incluindo letras, títulos e referências a artistas — são de propriedade exclusiva de seus respectivos detentores de direitos autorais. O uso dessas referências tem caráter estritamente artístico e literário, sem fins comerciais diretos sobre as composições musicais, e não implica em qualquer tipo de patrocínio, endosso ou associação oficial com os artistas mencionados.",
+          "text": "Nota Editorial",
           "audio_trigger": null
         },
         {
@@ -67,7 +67,7 @@
           "type": "paragraph",
           "order": 6,
           "page_hint": 1,
-          "text": "A trilha sonora oficial de Skyhaven está disponível no Spotify. Esta playlist é uma curadoria independente criada pelo autor para fins de imersão literária. O acesso às faixas depende dos termos de serviço da plataforma e da disponibilidade dos catálogos dos artistas.",
+          "text": "As canções mencionadas nesta obra funcionam como a alma da experiência narrativa. Todas as músicas citadas — incluindo letras, títulos e referências a artistas — são de propriedade exclusiva de seus respectivos detentores de direitos autorais. O uso destas referências tem caráter estritamente artístico e literário, com o objetivo de criar uma imersão sensorial completa. Esta aplicação não possui fins comerciais diretos sobre as composições e não implica em qualquer tipo de patrocínio, endosso ou associação oficial com os artistas e bandas mencionados. A disponibilidade e a reprodução das faixas dependem exclusivamente dos termos de serviço e dos catálogos ativos na plataforma de streaming conectada pelo usuário.",
           "audio_trigger": null
         }
       ]
