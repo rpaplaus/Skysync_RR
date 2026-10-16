@@ -1,0 +1,31 @@
+@import "./reader.css";
+
+/* ===================================================================
+   FASE 24.3: AJUSTE DE BACKGROUND DESKTOP (SPLASH SCREEN)
+   1. Redimensionamento da Imagem no Desktop:
+      - background-size: contain;
+      - background-repeat: no-repeat;
+      - background-position: center;
+   2. Preenchimento Lateral em Degradê:
+      - radial-gradient(circle at center, #1A1525 0%, #05050A 80%)
+      - background-color: #05050A;
+   3. Preservação Absoluta do Mobile:
+      - Telas mobile mantêm background-size: cover; (declarado no reader.css).
+   =================================================================== */
+@media (min-width: 1024px) {
+  body.has-splash {
+    background: radial-gradient(circle at center, #1A1525 0%, #05050A 80%);
+    background-color: #05050A;
+  }
+
+  .splash-screen {
+    background-color: #05050A;
+    background-image: 
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.12) 0%, rgba(10, 15, 30, 0.2) 50%, rgba(5, 5, 10, 0.85) 100%),
+      url('/assets/skyhaven_cover.png'),
+      radial-gradient(circle at center, #1A1525 0%, #05050A 80%);
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+}

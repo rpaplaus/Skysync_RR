@@ -119,8 +119,15 @@
     const token = urlParams.get('token');
     const expiresInParam = urlParams.get('expires_in');
     const authError = urlParams.get('auth_error');
+    const isLogout = urlParams.get('logout') !== null;
 
-    if (token) {
+    if (isLogout) {
+      console.log('🔓 [Skysync Auth] Parâmetro de logout detectado. Limpando autenticação...');
+      clearStoredAuth();
+      if (splashAuthNotice) {
+        splashAuthNotice.style.display = 'none';
+      }
+    } else if (token) {
       console.log('🔑 [Skysync Auth] Token de acesso do Spotify recebido via callback. Salvando com expiração exata...');
       const expiresInSec = parseInt(expiresInParam || '3600', 10);
       const expirationTime = Date.now() + expiresInSec * 1000;

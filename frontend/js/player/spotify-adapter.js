@@ -52,13 +52,15 @@ class SpotifyAdapter {
     this.crossfadeInterval = null;
     this._rampResolve = null;
 
-    // Fase 16 (Achado F): parâmetros das rampas locais de volume
+    // Fase 23: Fade-out Cinematográfico de 4 Segundos e Fade-in Suave
     this.FADE = {
-      OUT_MS: 800,
-      OUT_STEP_MS: 50,
-      IN_STEP_MS: 100,
-      TRANSITION_TIMEOUT_MS: 5000,
+      OUT_MS: 4000,          // Fade-out cinematográfico rigoroso de 4 segundos (4000ms)
+      OUT_STEP_MS: 100,       // Intervalos suaves de 100ms
+      IN_MS: 2500,           // Fade-in de 2 a 3 segundos (2500ms)
+      IN_STEP_MS: 100,        // Intervalos suaves de 100ms
+      TRANSITION_TIMEOUT_MS: 10000, // Timeout estendido para acomodar 4s fade-out + buffering + play
     };
+    this._resolvePlaybackConfirmed = null;
 
     // Fim de faixa já sinalizado para a faixa atual (evita disparos duplicados)
     this.hasTriggeredTrackEnd = false;
@@ -383,16 +385,92 @@ class SpotifyAdapter {
   }
 
   /**
-   * Carrega e reproduz uma faixa no Spotify (Fase 16).
-   * Transição real em stream único: Fade-Out local (800ms) → PUT /me/player/play → Fade-In local.
-   * Serializada por Request Token (Achado A): uma nova chamada invalida as anteriores; após cada
-   * await, execuções obsoletas abortam sem enviar comandos ao Spotify nem disparar callbacks.
-   * @param {Object} trackData - Objeto da faixa com providers.spotify (uri ou id)
-   * @param {boolean} autoplay - Se false, a faixa é carregada e pausada imediatamente
-   * @param {number} fadeDurationMs - Duração do fade-in local (o fade-out é fixo em FADE.OUT_MS)
+   * Fade-out assíncrono rigoroso (Fase 23).
+   * Reduz o volume do valor atual até 0% em exatamente durationMs (padrão 4000ms).
+   * Intervalos suaves de stepMs (padrão 100ms).
    */
-  async loadTrack(trackData, autoplay = true, fadeDurationMs = 4000) {
-    // Achado A: Request Token — invalida execuções anteriores e interrompe qualquer rampa ativa
+  async fadeOut(durationMs = 4000, stepMs = 100, reqId = this.loadRequestId) {
+    if (this.currentVolumePercent <= 0 || !this.isPlayingTrack) {
+      await this._setVolumeNative(0);
+      return true;
+    }
+    const fromVol = this.currentVolumePercent;
+    console.log(`📉 [Skysync Fade-Out] Reduzindo volume (${fromVol}% -> 0%) em ${durationMs}ms...`);
+    const completed = await this._rampVolume(fromVol, 0, durationMs, stepMs, reqId);
+    if (reqId === this.loadRequestId) {
+      await this._setVolumeNative(0);
+    }
+    return completed;
+  }
+
+  /**
+   * Fade-in assíncrono suave (Fase 23).
+   * Aumenta o volume de 0% até o volume alvo do usuário em durationMs (padrão 2500ms).
+   * Intervalos suaves de stepMs (padrão 100ms).
+   */
+  async fadeIn(durationMs = 2500, stepMs = 100, reqId = this.loadRequestId) {
+    const targetVol = this._targetVolumePercent();
+    console.log(`📈 [Skysync Fade-In] Aumentando volume (0% -> ${targetVol}%) em ${durationMs}ms...`);
+    return await this._rampVolume(0, () => this._targetVolumePercent(), durationMs, stepMs, reqId);
+  }
+
+  /**
+   * Aguarda a confirmação de que a nova faixa começou a tocar de fato no SDK.
+   * Disparada quando o evento player_state_changed reporta isExpectedUri && !state.paused.
+   */
+  _waitForPlaybackConfirmation(reqId, timeoutMs = 3500) {
+    if (reqId !== this.loadRequestId) {
+      return Promise.resolve(false);
+    }
+    if (this.isPlayingTrack && !this.isTransitioning) {
+      return Promise.resolve(true);
+    }
+
+    return new Promise((resolve) => {
+      let timer = null;
+      const onConfirm = (confirmed) => {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        if (this._resolvePlaybackConfirmed === onConfirm) {
+          this._resolvePlaybackConfirmed = null;
+        }
+        resolve(confirmed);
+      };
+
+      this._resolvePlaybackConfirmed = onConfirm;
+
+      timer = setTimeout(() => {
+        timer = null;
+        if (this._resolvePlaybackConfirmed === onConfirm) {
+          this._resolvePlaybackConfirmed = null;
+        }
+        resolve(reqId === this.loadRequestId);
+      }, timeoutMs);
+    });
+  }
+
+  /**
+   * Carrega e reproduz uma faixa no Spotify com Fade-out Cinematográfico e Fade-in Suave (Fase 23).
+   * 
+   * Fluxo Estrito:
+   * 1. Fade-Out Rigoroso de 4 Segundos (4000ms): volume atual reduzido gradativamente até 0% em passos de 100ms.
+   * 2. Somente quando o volume atingir 0%, o sistema envia o comando PUT /me/player/play para a nova faixa.
+   * 3. Confirmação do SDK: aguarda a nova faixa confirmar reprodução no SDK.
+   * 4. Fade-In Suave (2 a 3 segundos, 2500ms): eleva suavemente o volume de 0% até o volume alvo do usuário.
+   * 
+   * Bloqueio de Condições de Corrida (Race Conditions):
+   * Cada chamada incrementa this.loadRequestId e cancela qualquer fade ativo. Chamadas obsoletas
+   * abortam imediatamente, e a nova chamada assume suavemente a partir do volume atual em tempo real.
+   * 
+   * @param {Object} trackData - Objeto da faixa com providers.spotify (uri ou id)
+   * @param {boolean} autoplay - Se false, a faixa é carregada e pausada
+   * @param {number} fadeInDurationMs - Duração do fade-in local (padrão 2500ms, 2 a 3s)
+   * @param {number} fadeOutDurationMs - Duração do fade-out local (padrão 4000ms, 4s)
+   */
+  async loadTrack(trackData, autoplay = true, fadeInDurationMs = 2500, fadeOutDurationMs = 4000) {
+    // 1. Bloqueio de Condições de Corrida: cancela intervalos de fade anteriores e assume volume atual
     const reqId = ++this.loadRequestId;
     this._cancelRamp();
 
@@ -424,8 +502,8 @@ class SpotifyAdapter {
       if (reqId !== this.loadRequestId) return;
     }
 
-    // Fade-out somente se houver áudio audível da faixa anterior
-    const shouldFadeOut = this.isPlayingTrack && fadeDurationMs > 0;
+    // Fade-out cinematográfico somente se houver áudio audível da faixa anterior
+    const shouldFadeOut = this.isPlayingTrack && this.currentVolumePercent > 0 && fadeOutDurationMs > 0;
 
     this.currentTrack = trackData;
     this.expectedUri = trackUri;
@@ -433,25 +511,32 @@ class SpotifyAdapter {
     this.hasTriggeredTrackEnd = false;
     this.lastPosition = 0;
 
-    // Achado E: Trava de Transição — estados são ignorados até o SDK confirmar expectedUri tocando
-    this._armTransitionLock(reqId);
-
     console.log(
-      `🎵 [Skysync Spotify] Carregando faixa #${reqId}: '${trackData.title}' (${trackUri}) ` +
-      `[Autoplay: ${autoplay}, Fade-out: ${shouldFadeOut ? this.FADE.OUT_MS : 0}ms, ` +
-      `Fade-in: ${fadeDurationMs}ms, Device: ${this.deviceId}]`
+      `🎵 [Skysync Spotify] Transição para faixa #${reqId}: '${trackData.title}' (${trackUri}) ` +
+      `[Autoplay: ${autoplay}, Fade-Out: ${shouldFadeOut ? fadeOutDurationMs : 0}ms, ` +
+      `Fade-In: ${fadeInDurationMs}ms, Vol Atual: ${this.currentVolumePercent}%, Device: ${this.deviceId}]`
     );
 
     try {
-      // 1. Fade-out local rápido da faixa anterior (ou zera o volume antes do play)
+      // ETAPA 1 (Fase 23): Fade-Out Cinematográfico Rigoroso de 4 Segundos
       if (shouldFadeOut) {
-        await this._rampVolume(this.currentVolumePercent, 0, this.FADE.OUT_MS, this.FADE.OUT_STEP_MS, reqId);
-      } else if (fadeDurationMs > 0 || !autoplay) {
+        await this.fadeOut(fadeOutDurationMs, this.FADE.OUT_STEP_MS, reqId);
+      } else {
         await this._setVolumeNative(0);
       }
-      if (reqId !== this.loadRequestId) return;
 
-      // 2. Requisição PUT /me/player/play com a nova URI
+      // Se uma nova requisição chegou durante os 4s de fade-out, aborta imediatamente
+      if (reqId !== this.loadRequestId) {
+        console.log(`🛑 [Skysync Spotify] Requisição #${reqId} abortada por nova transição #${this.loadRequestId}.`);
+        return;
+      }
+
+      // ETAPA 2 (Fase 23): SOMENTE quando o volume atingir 0%, envia o comando para iniciar a nova faixa
+      await this._setVolumeNative(0);
+
+      // Trava de Transição ativada antes do PUT
+      this._armTransitionLock(reqId);
+
       const playUrl = this.deviceId
         ? `https://api.spotify.com/v1/me/player/play?device_id=${this.deviceId}`
         : 'https://api.spotify.com/v1/me/player/play';
@@ -466,6 +551,7 @@ class SpotifyAdapter {
           uris: [trackUri],
         }),
       });
+
       if (reqId !== this.loadRequestId) return;
 
       if (!response.ok && response.status !== 204 && response.status !== 202) {
@@ -474,9 +560,6 @@ class SpotifyAdapter {
         console.warn(`[Skysync Spotify] Erro ao iniciar faixa via API (HTTP ${response.status}):`, errText);
         this._releaseTransitionLock();
 
-        // Requisito 4 (Fase 18: Limpeza de Erros e Pulos):
-        // Se o erro for de autenticação/permissão (Token rejeitado 401 ou Conta Free 403),
-        // NÃO repassa para o PlayerManager tentar outra música em loop.
         if (response.status === 401 || response.status === 403) {
           const reason = response.status === 401 ? 'auth_error' : 'premium_required';
           this._handleCriticalAuthError(reason, `HTTP ${response.status}: ${errText}`);
@@ -487,17 +570,15 @@ class SpotifyAdapter {
         return;
       }
 
-      // Rearma a trava a partir do PUT aceito (o buffering da nova faixa começa agora)
+      // Rearma a trava após o PUT aceito (buffering da nova música)
       this._armTransitionLock(reqId);
 
-      // 3. autoplay = false: mantém a faixa carregada, porém pausada
+      // Se não for autoplay (ex: usuário pausou na página):
       if (!autoplay) {
         if (this.player) {
           try {
             await this.player.pause();
-          } catch (_) {
-            // O SDK pode rejeitar o pause durante o buffering inicial
-          }
+          } catch (_) {}
         }
         if (reqId !== this.loadRequestId) return;
         this._releaseTransitionLock();
@@ -511,15 +592,21 @@ class SpotifyAdapter {
       this.wasPlaying = true;
       if (this.onStateChangeCallback) this.onStateChangeCallback(true);
 
-      // 4. Fade-in local 0 → volume alvo em passos de 100ms (o alvo acompanha o slider durante a rampa)
-      if (fadeDurationMs > 0) {
-        await this._rampVolume(0, () => this._targetVolumePercent(), fadeDurationMs, this.FADE.IN_STEP_MS, reqId);
+      // ETAPA 3 (Fase 23): Aguarda o SDK confirmar a reprodução da nova faixa
+      console.log(`⏳ [Skysync Spotify] Aguardando confirmação do SDK para iniciar Fade-In...`);
+      await this._waitForPlaybackConfirmation(reqId, 3500);
+      if (reqId !== this.loadRequestId) return;
+
+      // ETAPA 4 (Fase 23): Fade-In de 2 a 3 segundos (2500ms) de 0% até o volume do usuário
+      if (fadeInDurationMs > 0) {
+        console.log(`📈 [Skysync Fade-In] Nova faixa iniciada. Executando Fade-In de ${fadeInDurationMs}ms até ${this._targetVolumePercent()}%...`);
+        await this.fadeIn(fadeInDurationMs, this.FADE.IN_STEP_MS, reqId);
       } else {
         await this._setVolumeNative(this._targetVolumePercent());
       }
     } catch (e) {
       if (reqId !== this.loadRequestId) return;
-      console.error('[Skysync Spotify] Exceção ao reproduzir faixa:', e);
+      console.error('[Skysync Spotify] Exceção na transição de faixa:', e);
       this._releaseTransitionLock();
       if (this.onErrorCallback) this.onErrorCallback('play_exception', trackData);
     }
@@ -535,7 +622,7 @@ class SpotifyAdapter {
     this.transitionTimeout = setTimeout(() => {
       this.transitionTimeout = null;
       if (reqId === this.loadRequestId && this.isTransitioning) {
-        console.log('⏱️ [Skysync Spotify] Timeout de segurança da trava de transição (5s). Liberando trava.');
+        console.log('⏱️ [Skysync Spotify] Timeout de segurança da trava de transição (10s). Liberando trava.');
         this.isTransitioning = false;
       }
     }, this.FADE.TRANSITION_TIMEOUT_MS);
@@ -584,7 +671,13 @@ class SpotifyAdapter {
         }
         return;
       }
+      console.log(`✨ [Skysync Spotify] Reprodução da nova faixa confirmada pelo SDK: '${this.currentTrack?.title}'. Liberando transição.`);
       this._releaseTransitionLock();
+      if (typeof this._resolvePlaybackConfirmed === 'function') {
+        const cb = this._resolvePlaybackConfirmed;
+        this._resolvePlaybackConfirmed = null;
+        cb(true);
+      }
     }
 
     // Fora de transição: estados de outra URI não contaminam playback da faixa atual
@@ -721,6 +814,11 @@ class SpotifyAdapter {
       const cancel = this._rampResolve;
       this._rampResolve = null;
       cancel();
+    }
+    if (typeof this._resolvePlaybackConfirmed === 'function') {
+      const cb = this._resolvePlaybackConfirmed;
+      this._resolvePlaybackConfirmed = null;
+      cb(false);
     }
   }
 

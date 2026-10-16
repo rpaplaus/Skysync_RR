@@ -13,8 +13,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Estilos do Leitor -->
-  <link rel="stylesheet" href="/static/css/reader.css?v=fase22">
-  <link rel="stylesheet" href="css/reader.css?v=fase22">
+  <link rel="stylesheet" href="/static/css/reader.css?v=fase24.3">
+  <link rel="stylesheet" href="css/reader.css?v=fase24.3">
+  <link rel="stylesheet" href="css/style.css?v=fase24.3">
 
   <!-- Spotify Web Playback SDK -->
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
@@ -22,8 +23,8 @@
 <body class="has-splash">
 
   <!-- ===================================================================
-       TELA INICIAL / SPLASH SCREEN (Fase 13: Implantação Oficial Spotify)
-       Portão único de entrada via Spotify Premium e liberação de áudio.
+       TELA INICIAL / SPLASH SCREEN (Fase 24: Redesign com Arte Oficial)
+       Plano de fundo com a arte oficial de Skyhaven e estética Cyberpunk Glassmorphism.
        =================================================================== -->
   <section class="splash-screen" id="splash-screen" aria-label="Tela Inicial de Apresentação">
     <div class="splash-backdrop">
@@ -33,22 +34,10 @@
     </div>
     
     <div class="splash-card">
-      <div class="splash-badge">✦ Experiência Sinestésica Adaptativa • 100% Spotify ✦</div>
-      <h1 class="splash-title">Skysync — Skyhaven</h1>
-      <p class="splash-subtitle">Crônicas do Éter • Sincronia Literária & Musical</p>
-
-      <div class="splash-divider">
-        <span class="splash-diamond">◆</span>
-      </div>
-
-      <p class="splash-description">
-        Mergulhe nas rotas aéreas e nas vibrações de Skyhaven. Cada capítulo é acompanhado por uma trilha sonora oficial via Spotify que antecipa o ritmo e a emoção de cada palavra.
-      </p>
-
       <!-- Mensagem de Status/Erro da Autenticação (se houver) -->
       <div class="splash-auth-notice" id="splash-auth-notice" style="display: none;"></div>
 
-      <!-- Botões de Ação da Splash Screen (Fase 13) -->
+      <!-- Botões de Ação da Splash Screen (Fase 24) -->
       <div class="splash-actions" id="splash-actions">
         <!-- Botão Único de Entrada Inicial: Conectar com Spotify Premium -->
         <a href="/api/v1/auth/login" class="splash-btn splash-btn-spotify" id="btn-spotify-login">
@@ -71,10 +60,13 @@
         </button>
       </div>
 
-      <div class="splash-footer-note">
-        <span>🎧 Recomendado uso de fones de ouvido para imersão total com crossfade contínuo</span>
+      <div class="splash-footer-note" id="splash-footer-note">
+        <span>🎧 Recomendamos o uso de fone de ouvido</span>
       </div>
     </div>
+
+    <!-- Assinatura Tecnológica Discreta (Fase 24) -->
+    <div class="splash-signature" aria-hidden="true">POWERED BY SKYSYNC</div>
   </section>
 
   <!-- Barra de Progresso de Leitura Superior -->
@@ -245,10 +237,10 @@
     </div>
   </div>
 
-  <!-- Scripts do Skysync (Fase 22: Trava de Viewport e Refatoração Mobile) -->
-  <script src="/js/reader.js?v=fase22" defer></script>
-  <script src="/js/player/spotify-adapter.js?v=fase22" defer></script>
-  <script src="/js/player/player-manager.js?v=fase22" defer></script>
-  <script src="/js/main.js?v=fase22" defer></script>
+  <!-- Scripts do Skysync (Fase 24.2: Reposicionamento e Compactação do Box) -->
+  <script src="/js/reader.js?v=fase24.2" defer></script>
+  <script src="/js/player/spotify-adapter.js?v=fase24.2" defer></script>
+  <script src="/js/player/player-manager.js?v=fase24.2" defer></script>
+  <script src="/js/main.js?v=fase24.2" defer></script>
 </body>
 </html>

@@ -1,13 +1,17 @@
 /**
- * Skysync - PlayerManager (Fase 15: Saneamento do Catálogo Spotify e Bloqueio de Overlap)
+ * Skysync - PlayerManager (Fase 23: Fade-out Cinematográfico de 4 Segundos e Fade-in Suave)
  * 
  * Orquestrador oficial do player Spotify com Web Playback SDK:
  * 1. Startup Exato: O aplicativo não sorteia rádio ambiente no início. O Capítulo 1
  *    começa tocando imediatamente o gatilho oficial "Handle With Care - Traveling Wilburys".
  * 2. Transições Seguras e Fim Natural: Validação por URI e trava no adapter garantem
  *    que o evento ENDED só dispare no fim real da música, acionando a Rádio Ambiente.
- * 3. Lookahead Trigger Rigoroso: Limpeza estrita de timers pendentes ao virar páginas rapidamente,
- *    guarda contra duplicatas em voo e suporte a delay 0ms.
+ * 3. Fade-Out Rigoroso de 4 Segundos (4000ms): Ao disparar um gatilho de cena, o volume
+ *    é reduzido gradualmente até 0% antes de emitir a troca de faixa.
+ * 4. Fade-In Suave (2 a 3 segundos, 2500ms): Logo após a nova faixa confirmar o playback,
+ *    o volume sobe gradativamente até o volume alvo do usuário.
+ * 5. Bloqueio de Condições de Corrida (Race Conditions): Trocas rápidas de página cancelam
+ *    imediatamente os intervalos anteriores e iniciam a rampa a partir do volume atual em tempo real.
  */
 
 const DEFAULT_AMBIENT_TRACKS = [
@@ -22,7 +26,7 @@ const DEFAULT_AMBIENT_TRACKS = [
         id: '4Hu4Cg35qxh3Uz7PAGj8de',
       },
     },
-    default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+    default_playback_options: { fade_in_ms: 2500, fade_out_ms: 4000, volume: 0.85, loop: false },
   },
   {
     id: 'track-sundown',
@@ -35,7 +39,7 @@ const DEFAULT_AMBIENT_TRACKS = [
         id: '0SjnBEHZVXgCKvOrpvzL2k',
       },
     },
-    default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+    default_playback_options: { fade_in_ms: 2500, fade_out_ms: 4000, volume: 0.85, loop: false },
   },
   {
     id: 'track-rosanna',
@@ -48,7 +52,7 @@ const DEFAULT_AMBIENT_TRACKS = [
         id: '37BTh5g05cxBIRYMbw8g2T',
       },
     },
-    default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+    default_playback_options: { fade_in_ms: 2500, fade_out_ms: 4000, volume: 0.85, loop: false },
   },
   {
     id: 'track-youre-my-best-friend',
@@ -61,7 +65,7 @@ const DEFAULT_AMBIENT_TRACKS = [
         id: '46gybz6M2g4oiVvt1aWOV4',
       },
     },
-    default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+    default_playback_options: { fade_in_ms: 2500, fade_out_ms: 4000, volume: 0.85, loop: false },
   },
   {
     id: 'track-wish-you-were-here',
@@ -74,7 +78,7 @@ const DEFAULT_AMBIENT_TRACKS = [
         id: '6mFkJmJqdDVQ1REhVfGgd1',
       },
     },
-    default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+    default_playback_options: { fade_in_ms: 2500, fade_out_ms: 4000, volume: 0.85, loop: false },
   },
 ];
 
@@ -90,7 +94,7 @@ const DEFAULT_INITIAL_TRACK = {
       id: '1G0ku3TLCGwrAHj9WPudKX',
     },
   },
-  default_playback_options: { fade_in_ms: 4000, volume: 0.85, loop: false },
+  default_playback_options: { fade_in_ms: 2500, fade_out_ms: 4000, volume: 0.85, loop: false },
 };
 
 class PlayerManager {
@@ -250,6 +254,7 @@ class PlayerManager {
    * Ao clicar em "Iniciar Leitura" (seja do início do livro ou no Capítulo 1 / Prefácio),
    * a primeira música a tocar DEVE SER OBRIGATORIAMENTE a primeira música de gatilho:
    * "Handle With Care" - Traveling Wilburys (track-handle-with-care), com autoplay = true.
+   * Fase 23: Início direto sem fade-out prévio (volume em 0%), seguido de fade-in suave de 2500ms.
    */
   async playInitialTrack() {
     console.log('🚀 [Skysync Startup] Iniciando leitura: acionando trilha oficial obrigatória (Handle With Care)...');
@@ -265,20 +270,25 @@ class PlayerManager {
     console.log(
       `🚀 [Skysync Startup] Tocando faixa oficial obrigatória de abertura: '${initialTrack.title}' (${initialTrack.artist})`
     );
-    this.playTrack(initialTrack, true, 4000);
+    return await this.playTrack(initialTrack, true, 2500, 0);
   }
 
   /**
-   * Reproduz uma faixa explicitamente.
+   * Reproduz uma faixa explicitamente com controle refinado de Fade-In e Fade-Out Cinematográfico (Fase 23).
+   * 
+   * @param {Object} track - Objeto da faixa
+   * @param {boolean} autoplay - Se true, inicia playback
+   * @param {number} fadeInDurationMs - Duração do fade-in (2000ms a 3000ms, padrão 2500ms)
+   * @param {number} fadeOutDurationMs - Duração do fade-out rigoroso (padrão 4000ms)
    */
-  playTrack(track, autoplay = true, fadeDurationMs = 4000) {
+  async playTrack(track, autoplay = true, fadeInDurationMs = 2500, fadeOutDurationMs = 4000) {
     if (!track) return;
 
     this.currentTrack = track;
     localStorage.setItem(this.STORAGE_KEYS.LAST_TRACK_ID, track.id);
 
-    this.adapter.loadTrack(track, autoplay, fadeDurationMs);
     this._updateUI(autoplay);
+    return await this.adapter.loadTrack(track, autoplay, fadeInDurationMs, fadeOutDurationMs);
   }
 
   /**
@@ -309,9 +319,10 @@ class PlayerManager {
   }
 
   /**
-   * Inicia ou faz crossfade para uma nova faixa da Rádio Ambiente (Padrão: 4000ms).
+   * Inicia ou faz transição para uma nova faixa da Rádio Ambiente (Fase 23).
+   * Padrão: 4000ms fade-out se houver faixa audível tocando, e 2500ms fade-in.
    */
-  playRandomAmbientTrack(fadeDurationMs = 4000) {
+  playRandomAmbientTrack(fadeInDurationMs = 2500, fadeOutDurationMs = 4000) {
     if (this.isManuallyPaused) {
       console.log('[Skysync Player] Rádio Ambiente não acionada: usuário pausou manualmente.');
       return;
@@ -324,10 +335,10 @@ class PlayerManager {
     }
 
     console.log(
-      `📻 [Skysync Rádio Ambiente Spotify] Tocando: '${ambientTrack.title}' (Crossfade: ${fadeDurationMs}ms)`
+      `📻 [Skysync Rádio Ambiente Spotify] Tocando: '${ambientTrack.title}' (Fade-Out: ${fadeOutDurationMs}ms, Fade-In: ${fadeInDurationMs}ms)`
     );
 
-    this.playTrack(ambientTrack, true, fadeDurationMs);
+    return this.playTrack(ambientTrack, true, fadeInDurationMs, fadeOutDurationMs);
   }
 
   /**
@@ -351,12 +362,13 @@ class PlayerManager {
       return;
     }
 
-    this.playRandomAmbientTrack(3000);
+    return this.playRandomAmbientTrack(2500, 4000);
   }
 
   /**
    * Tratamento de fim de faixa natural (Achado D refatorado).
    * O adapter garante que o callback só dispara quando a música acaba de verdade.
+   * Fase 23: Como a faixa anterior já encerrou o áudio, fade-out é 0ms e fade-in é 2500ms.
    */
   handleTrackEnded(endedTrack) {
     const trackTitle = endedTrack?.title || this.currentTrack?.title || 'Faixa';
@@ -371,7 +383,7 @@ class PlayerManager {
 
     console.log(
       `⏹️ [Skysync PlayerManager] Fim natural da faixa detectado: '${trackTitle}' (role: ${trackRole}). ` +
-      `Ativando Rádio Ambiente Spotify com transição suave (3000ms)...`
+      `Ativando Rádio Ambiente Spotify com fade-in suave (2500ms, sem espera de fade-out)...`
     );
 
     if (this.isManuallyPaused) {
@@ -379,7 +391,29 @@ class PlayerManager {
       return;
     }
 
-    this.playRandomAmbientTrack(3000);
+    this.playRandomAmbientTrack(2500, 0);
+  }
+
+  /**
+   * Fade-out cinematográfico direto via adaptador (Fase 23).
+   * Reduz o volume do nível atual até 0% em durationMs (padrão 4000ms).
+   */
+  async fadeOut(durationMs = 4000, stepMs = 100) {
+    if (this.adapter && typeof this.adapter.fadeOut === 'function') {
+      return await this.adapter.fadeOut(durationMs, stepMs);
+    }
+    return false;
+  }
+
+  /**
+   * Fade-in suave direto via adaptador (Fase 23).
+   * Eleva o volume de 0% até o nível configurado pelo usuário em durationMs (padrão 2500ms).
+   */
+  async fadeIn(durationMs = 2500, stepMs = 100) {
+    if (this.adapter && typeof this.adapter.fadeIn === 'function') {
+      return await this.adapter.fadeIn(durationMs, stepMs);
+    }
+    return false;
   }
 
   /**
@@ -444,7 +478,7 @@ class PlayerManager {
       this.errorCooldownTimer = null;
       if (!this.isManuallyPaused) {
         console.log(`🔄 [Skysync PlayerManager] Tentativa ${this.consecutiveErrorCount}/4: sorteando nova faixa ambient...`);
-        this.playRandomAmbientTrack(2000);
+        this.playRandomAmbientTrack(2500, 0);
       }
     }, 800);
   }
@@ -462,7 +496,7 @@ class PlayerManager {
   }
 
   /**
-   * Lookahead Exato e Bloqueio de Overlap (Fase 16).
+   * Lookahead Exato e Bloqueio de Overlap (Fase 16 / Fase 23).
    * Trata gatilhos recebidos de mudanças de página ou cliques em badges.
    */
   handleParagraphChange(detail) {
@@ -510,7 +544,7 @@ class PlayerManager {
   }
 
   /**
-   * Executa a transição definitiva para a faixa de cena disparada (Correção 3: 3000ms fixo).
+   * Executa a transição definitiva para a faixa de cena disparada (Fase 23: Fade-out Cinematográfico 4000ms + Fade-in 2500ms).
    * Um gatilho de cena na virada de página sempre toca, a menos que o usuário tenha pausado explicitamente na página atual.
    */
   _executeTrigger(audioTrigger, paragraphId) {
@@ -520,16 +554,19 @@ class PlayerManager {
     this.pendingTriggerBlockId = null;
     this.pendingTriggerTrack = null;
 
-    console.log(`🔀 [Skysync Spotify] Disparando trilha de cena: '${track.title}' (${track.artist}) [Transição: 3000ms]`);
+    console.log(
+      `🔀 [Skysync Spotify] Disparando trilha de cena: '${track.title}' (${track.artist}) ` +
+      `[Fade-Out Cinematográfico: 4000ms -> Play -> Fade-In: 2500ms]`
+    );
 
     if (this.pausedOnCurrentPage) {
       console.log('⏸️ [Skysync Player] Gatilho mantido pausado: usuário pausou explicitamente na página atual.');
-      this.playTrack(track, false, 3000);
+      this.playTrack(track, false, 2500, 4000);
       return;
     }
 
     this.isManuallyPaused = false;
-    this.playTrack(track, true, 3000);
+    this.playTrack(track, true, 2500, 4000);
   }
 
   /**
