@@ -11,7 +11,7 @@
         "backend.app.main:app",
         "--reload",
         "--port",
-        "8000"
+        "3000"
       ],
       "windows": {
         "command": ".\\.venv\\Scripts\\python.exe",
@@ -21,7 +21,7 @@
           "backend.app.main:app",
           "--reload",
           "--port",
-          "8000"
+          "3000"
         ]
       },
       "osx": {
@@ -32,7 +32,7 @@
           "backend.app.main:app",
           "--reload",
           "--port",
-          "8000"
+          "3000"
         ]
       },
       "linux": {
@@ -43,7 +43,7 @@
           "backend.app.main:app",
           "--reload",
           "--port",
-          "8000"
+          "3000"
         ]
       },
       "group": {
@@ -56,7 +56,7 @@
     {
       "label": "Iniciar Tunnel Ngrok",
       "type": "shell",
-      "command": "ngrok http 127.0.0.1:8000 --url https://noegenetic-aboundingly-annabelle.ngrok-free.dev",
+      "command": "ngrok http 127.0.0.1:3000 --url https://noegenetic-aboundingly-annabelle.ngrok-free.dev",
       "isBackground": true,
       "problemMatcher": []
     },

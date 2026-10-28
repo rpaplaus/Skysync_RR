@@ -104,7 +104,7 @@ O projeto já inclui perfis prontos na pasta `.vscode/` para inicialização com
 1. Abra a pasta do projeto no **Antigravity IDE**.
 2. Abra o painel **Run and Debug** na barra lateral esquerda (`Ctrl+Shift+D` ou `Cmd+Shift+D`) ou pressione **`F5`**.
 3. Selecione uma das opções configuradas:
-   - **`Skysync: Servidor FastAPI (Live Reload)`**: Inicia o servidor backend com *hot-reload* na porta `8000`.
+   - **`Skysync: Servidor FastAPI (Live Reload)`**: Inicia o servidor backend com *hot-reload* na porta `3000`.
    - **`Skysync: Executar main.py`**: Inicia o servidor executando diretamente `backend/app/main.py`.
    - **`Skysync: Rodar Testes da API`**: Executa a bateria de testes de validação.
 4. Clique no ícone verde de **Play** (ou aperte `F5`).
@@ -127,7 +127,7 @@ Após ativar o `.venv`, você pode iniciar o servidor de duas formas:
 
 ### Opção 1: Via Uvicorn (com *Live Reload*)
 ```bash
-uvicorn backend.app.main:app --reload --port 8000
+uvicorn backend.app.main:app --reload --port 3000
 ```
 
 ### Opção 2: Executando o arquivo principal
@@ -137,9 +137,9 @@ python backend/app/main.py
 
 ### 🌐 Acessando a Aplicação:
 O servidor serve tanto a API quanto a interface visual do leitor:
-- **Interface do Leitor (Frontend):** [`http://localhost:8000`](http://localhost:8000)
-- **Swagger UI (Documentação Interativa):** [`http://localhost:8000/docs`](http://localhost:8000/docs)
-- **ReDoc:** [`http://localhost:8000/redoc`](http://localhost:8000/redoc)
+- **Interface do Leitor (Frontend):** [`http://localhost:3000`](http://localhost:3000)
+- **Swagger UI (Documentação Interativa):** [`http://localhost:3000/docs`](http://localhost:3000/docs)
+- **ReDoc:** [`http://localhost:3000/redoc`](http://localhost:3000/redoc)
 
 ---
 

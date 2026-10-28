@@ -94,11 +94,13 @@
   function getMeasuringStage(widthPx) {
     if (!measuringStageEl) {
       measuringStageEl = document.createElement('div');
-      measuringStageEl.className = 'reader-measuring-stage';
+      measuringStageEl.className = 'reader-measuring-stage reader-page-body';
       measuringStageEl.id = 'reader-measuring-stage';
       document.body.appendChild(measuringStageEl);
     }
     measuringStageEl.style.width = `${widthPx}px`;
+    measuringStageEl.style.maxWidth = `${widthPx}px`;
+    measuringStageEl.style.boxSizing = 'border-box';
     measuringStageEl.style.fontSize = `${state.fontSizeRem}rem`;
     return measuringStageEl;
   }
@@ -159,10 +161,10 @@
     const bottomHud = elements.bottomHud || document.getElementById('reader-bottom-hud');
     const bottomHudHeight = bottomHud && bottomHud.offsetHeight > 30
       ? bottomHud.offsetHeight
-      : (window.innerWidth <= 768 ? 115 : 60);
+      : (window.innerWidth <= 768 ? 95 : 60);
 
     // Padding de segurança configurado no contêiner ou medido no DOM
-    let containerPadBottom = 120;
+    let containerPadBottom = window.innerWidth <= 768 ? 105 : 76;
     if (container) {
       const cStyle = window.getComputedStyle(container);
       const parsedPadBottom = parseFloat(cStyle.paddingBottom);
@@ -174,25 +176,30 @@
     // O espaço reservado para a base é o maior entre a altura real do player fixo e o padding de segurança
     const effectiveBottomGap = Math.max(bottomHudHeight, containerPadBottom);
 
-    // Largura útil da coluna de leitura (limitada a 740px)
-    const containerWidth = container && container.clientWidth > 100
-      ? container.clientWidth
-      : window.innerWidth;
-    const horizontalMargin = window.innerWidth <= 768 ? 32 : 64;
-    const readingWidth = Math.min(Math.max(280, containerWidth - horizontalMargin), 740);
+    // Largura útil REAL da coluna de leitura (corresponde com precisão milimétrica ao container de texto .reader-page-body)
+    const existingBody = elements.readerContent ? elements.readerContent.querySelector('.reader-page-body') : null;
+    let readingWidth;
+    if (existingBody && existingBody.clientWidth > 100) {
+      readingWidth = existingBody.clientWidth;
+    } else {
+      const maxViewportWidth = Math.min(720, window.innerWidth);
+      const viewportPaddingX = window.innerWidth <= 768 ? 40 : 64;
+      readingWidth = Math.max(260, maxViewportWidth - viewportPaddingX);
+    }
 
-    // Altura útil estritamente para os blocos de texto (viewport menos chrome superior, inferior e da página)
-    const internalPageChrome = window.innerWidth <= 768 ? 68 : 80;
-    const rawHeight = Math.max(220, viewportHeight - appHeaderHeight - effectiveBottomGap - internalPageChrome);
+    // Altura útil estritamente para os blocos de texto (viewport menos chrome superior, inferior e padding interno da página)
+    const internalPageChrome = window.innerWidth <= 768 ? 32 : 44;
+    const rawHeight = Math.max(200, viewportHeight - appHeaderHeight - effectiveBottomGap - internalPageChrome);
 
     // Fase 22: Recálculo Dinâmico de Linha (Anti-Fatiamento)
     // Encaixe exato: Math.floor(rawHeight / lineHeight) * lineHeight
     const computedLineHeight = getComputedLineHeight();
-    const availableHeight = Math.max(220, Math.floor(rawHeight / computedLineHeight) * computedLineHeight);
+    const availableHeight = Math.max(200, Math.floor(rawHeight / computedLineHeight) * computedLineHeight);
 
-    // Configura o estágio de medição invisível
+    // Configura o estágio de medição invisível com a largura real exata do leitor
     const stage = getMeasuringStage(readingWidth);
     stage.style.width = `${readingWidth}px`;
+    stage.style.maxWidth = `${readingWidth}px`;
     stage.innerHTML = '';
 
     const isPreface = chapter.is_preface || chapter.id === 'cap-preface';
@@ -212,7 +219,9 @@
     const headerDiv = document.createElement('div');
     headerDiv.innerHTML = headerHtml;
     stage.appendChild(headerDiv);
-    const chapterHeaderHeight = headerDiv.offsetHeight + 18;
+    const hStyle = window.getComputedStyle(headerDiv.firstElementChild || headerDiv);
+    const hMb = parseFloat(hStyle.marginBottom) || 20;
+    const chapterHeaderHeight = headerDiv.offsetHeight + hMb;
     stage.removeChild(headerDiv);
 
     // 2. Insere todos os blocos no estágio de uma só vez para medição em batch
@@ -229,8 +238,12 @@
     });
     stage.appendChild(fragment);
 
-    // 3. Lê as alturas de todos os blocos em um único passe (batch read)
-    const blockHeights = blockDivs.map((div) => div.offsetHeight + 18);
+    // 3. Lê as alturas de todos os blocos em um único passe com as margens reais calculadas
+    const blockHeights = blockDivs.map((div) => {
+      const style = window.getComputedStyle(div);
+      const mb = parseFloat(style.marginBottom) || 19.2;
+      return div.offsetHeight + mb;
+    });
 
     // Limpa o estágio
     stage.innerHTML = '';
@@ -320,9 +333,6 @@
           ${headerHtml}
           ${blocksHtml}
         </div>
-        <footer class="reading-page-footer">
-          <span class="reading-page-number">Página ${state.currentPageIndex + 1} de ${totalPages}</span>
-        </footer>
       </div>
     `;
 
@@ -884,6 +894,16 @@
     if (elements.btnFontIncrease) {
       elements.btnFontIncrease.addEventListener('click', () => {
         applyFontSize(state.fontSizeRem + 0.1);
+      });
+    }
+
+    // Recálculo dinâmico após carregamento completo das fontes web (Lora / Google Fonts)
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        if (state.isLoaded && state.book) {
+          const currentBlockId = localStorage.getItem(STORAGE_KEYS.LAST_PARAGRAPH);
+          repaginateAndRender(currentBlockId);
+        }
       });
     }
   }

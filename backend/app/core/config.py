@@ -17,16 +17,16 @@ env_candidates = [
 ]
 for env_file in env_candidates:
     if env_file.exists():
-        load_dotenv(env_file)
+        load_dotenv(env_file, override=True)
         break
 else:
-    load_dotenv()
+    load_dotenv(override=True)
 
 # Credenciais do Spotify (Authorization Code Flow)
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
 SPOTIFY_REDIRECT_URI = os.getenv(
-    "SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8000/api/v1/auth/callback"
+    "SPOTIFY_REDIRECT_URI", "https://skysync.dumai.com.br/api/v1/auth/callback"
 )
 
 # Escopos exigidos para o Web Playback SDK e controle de playback

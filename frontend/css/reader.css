@@ -450,7 +450,7 @@ body:not(.has-splash) {
   height: calc(100dvh - 64px);
   margin: 0 auto;
   box-sizing: border-box;
-  padding: 0 0 120px 0; /* Padding de segurança: garante que a última linha de texto termine ANTES do player fixo */
+  padding: 0 0 76px 0; /* Espaço para o player fixo inferior (~60px) + margem de respiro */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -478,7 +478,7 @@ body:not(.has-splash) {
 .page-click-zone {
   position: fixed;
   top: 64px;
-  bottom: 110px;
+  bottom: 76px;
   width: clamp(50px, 16vw, 190px);
   display: flex;
   align-items: center;
@@ -549,7 +549,7 @@ body:not(.has-splash) {
   padding: 24px 32px 14px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   box-sizing: border-box;
   position: relative;
   z-index: 10;
@@ -607,25 +607,13 @@ body:not(.has-splash) {
   overflow: hidden;
 }
 
-/* Rodapé discreto da página com indicador 'Página X de Y' */
+/* Rodapé discreto da página com indicador 'Página X de Y' (removido para evitar sobreposição - o contador está presente no player HUD inferior) */
 .reading-page-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 10px;
-  padding-bottom: 2px;
-  border-top: 1px solid var(--border-subtle);
-  margin-top: 10px;
-  flex-shrink: 0;
+  display: none !important;
 }
 
 .reading-page-number {
-  font-family: var(--font-sans);
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: none !important;
 }
 
 /* Cabeçalho do Capítulo Paginado (Somente na Página 1) */
@@ -731,6 +719,7 @@ body:not(.has-splash) {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family: var(--font-serif);
 }
 
 /* --- HUD DE LEITURA INFERIOR FIXO --- */
@@ -999,8 +988,8 @@ body:not(.has-splash) {
     overflow-x: hidden;
     height: calc(100vh - 64px);
     height: calc(100dvh - 64px);
-    padding-bottom: 120px; /* Padding de segurança: garante que a última linha termine ANTES do player */
-    padding-bottom: max(120px, calc(100px + env(safe-area-inset-bottom, 0px)));
+    padding-bottom: 105px; /* Espaço para o player mobile + margem de respiro */
+    padding-bottom: max(105px, calc(95px + env(safe-area-inset-bottom, 0px)));
   }
   .reader-page-viewport {
     width: 100%;
@@ -1011,7 +1000,7 @@ body:not(.has-splash) {
     padding: 16px 20px 10px;
   }
   .page-click-zone {
-    bottom: 120px;
+    bottom: 105px;
   }
   .book-hero-title {
     font-size: 2.2rem;

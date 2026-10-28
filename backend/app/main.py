@@ -96,6 +96,15 @@ def serve_frontend_root():
     raise HTTPException(status_code=404, detail="index.html do frontend não encontrado")
 
 
+# Rota explícita para favicon.ico
+@app.get("/favicon.ico", include_in_schema=False)
+def serve_favicon():
+    favicon_path = resolved_frontend_dir / "favicon.ico"
+    if favicon_path.exists():
+        return FileResponse(str(favicon_path), media_type="image/x-icon")
+    raise HTTPException(status_code=404, detail="Favicon não encontrado")
+
+
 # Montagens de diretórios estáticos
 if resolved_frontend_dir.exists():
     # 1. Montagem em /static para compatibilidade com links /static/css/...
@@ -117,5 +126,5 @@ if resolved_frontend_dir.exists():
 if __name__ == "__main__":
     import uvicorn
     import os
-    server_port = int(os.getenv("PORT", 8000))
+    server_port = int(os.getenv("PORT", 3000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=server_port, reload=True)
